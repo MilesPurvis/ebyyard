@@ -2,6 +2,8 @@
 
 A modern, responsive web application for Eby Street Bodega's sandwich ordering system. Built with React and featuring a clean, intuitive interface for managing sandwich orders.
 
+https://github.com/user-attachments/assets/46aed6d1-8aa5-48a5-87ac-8566964e641f
+
 ## Features
 
 - 🥪 Interactive sandwich builder
