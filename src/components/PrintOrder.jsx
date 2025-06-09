@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getTodaysOrders, getTodaysOrderSummary, getTodaysTotalAmount, getAllSandwiches, getOrderById, updateOrder, deleteOrder } from '../db/database.js'
+import { getTodaysOrders, getTodaysOrderSummary, getTodaysTotalAmount, getAllSandwiches, updateOrder, deleteOrder } from '../db/database.js'
 
 // ANCHOR: print-order-component
 function PrintOrder({ onBack }) {
