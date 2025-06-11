@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { initDatabase } from './db/database.js'
 import HomeScreen from './components/HomeScreen.jsx'
 import OrderFlow from './components/OrderFlow.jsx'
 import SandwichEditor from './components/SandwichEditor.jsx'
