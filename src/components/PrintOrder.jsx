@@ -20,19 +20,27 @@ function PrintOrder({ onBack }) {
     loadSandwiches()
   }, [])
 
-  const loadOrderData = () => {
-    const todaysOrders = getTodaysOrders()
-    const orderSummary = getTodaysOrderSummary()
-    const total = getTodaysTotalAmount()
+  const loadOrderData = async () => {
+    try {
+      const todaysOrders = await getTodaysOrders()
+      const orderSummary = await getTodaysOrderSummary()
+      const total = await getTodaysTotalAmount()
 
-    setOrders(todaysOrders)
-    setSummary(orderSummary)
-    setTotalAmount(total)
+      setOrders(todaysOrders)
+      setSummary(orderSummary)
+      setTotalAmount(total)
+    } catch (error) {
+      alert('Error loading order data: ' + error.message)
+    }
   }
 
-  const loadSandwiches = () => {
-    const allSandwiches = getAllSandwiches()
-    setSandwiches(allSandwiches)
+  const loadSandwiches = async () => {
+    try {
+      const allSandwiches = await getAllSandwiches()
+      setSandwiches(allSandwiches)
+    } catch (error) {
+      alert('Error loading sandwiches: ' + error.message)
+    }
   }
 
   const handleEdit = (order) => {
@@ -45,10 +53,10 @@ function PrintOrder({ onBack }) {
     setShowEditForm(true)
   }
 
-  const handleDelete = (orderId) => {
+  const handleDelete = async (orderId) => {
     if (window.confirm('Are you sure you want to delete this order?')) {
       try {
-        deleteOrder(orderId)
+        await deleteOrder(orderId)
         loadOrderData()
       } catch (error) {
         alert('Error deleting order: ' + error.message)
@@ -56,10 +64,10 @@ function PrintOrder({ onBack }) {
     }
   }
 
-  const handleEditSubmit = (e) => {
+  const handleEditSubmit = async (e) => {
     e.preventDefault()
     try {
-      updateOrder(editingOrder.id, editFormData.customer_name, editFormData.sandwich_id, editFormData.notes)
+      await updateOrder(editingOrder.id, editFormData.customer_name, editFormData.sandwich_id, editFormData.notes)
       loadOrderData()
       setShowEditForm(false)
       setEditingOrder(null)

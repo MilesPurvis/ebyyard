@@ -10,8 +10,15 @@ function OrderFlow({ onBack }) {
   const [sandwiches, setSandwiches] = useState([])
 
   useEffect(() => {
-    const allSandwiches = getAllSandwiches()
-    setSandwiches(allSandwiches)
+    const loadSandwiches = async () => {
+      try {
+        const allSandwiches = await getAllSandwiches()
+        setSandwiches(allSandwiches)
+      } catch (error) {
+        alert('Error loading sandwiches: ' + error.message)
+      }
+    }
+    loadSandwiches()
   }, [])
 
   const handleNameSubmit = (e) => {
@@ -26,10 +33,10 @@ function OrderFlow({ onBack }) {
     setStep(3)
   }
 
-  const handleOrderSubmit = (e) => {
+  const handleOrderSubmit = async (e) => {
     e.preventDefault()
     try {
-      addOrder(customerName, selectedSandwich.id, notes)
+      await addOrder(customerName, selectedSandwich.id, notes)
       setStep(4)
     } catch (error) {
       alert('Error placing order: ' + error.message)

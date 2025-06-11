@@ -10,11 +10,8 @@ function App() {
   const [dbReady, setDbReady] = useState(false)
 
   useEffect(() => {
-    initDatabase().then(() => {
-      setDbReady(true)
-    }).catch(error => {
-      console.error('Failed to initialize database:', error)
-    })
+    // Supabase doesn't need initialization, set ready immediately
+    setDbReady(true)
   }, [])
 
   const renderCurrentView = () => {

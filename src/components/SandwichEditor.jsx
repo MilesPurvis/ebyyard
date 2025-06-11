@@ -3,6 +3,8 @@ import { getAllSandwiches, addSandwich, updateSandwich, deleteSandwich } from '.
 
 // ANCHOR: sandwich-editor-component
 function SandwichEditor({ onBack }) {
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [passwordInput, setPasswordInput] = useState('')
   const [sandwiches, setSandwiches] = useState([])
   const [editingSandwich, setEditingSandwich] = useState(null)
   const [showForm, setShowForm] = useState(false)
@@ -17,12 +19,16 @@ function SandwichEditor({ onBack }) {
     loadSandwiches()
   }, [])
 
-  const loadSandwiches = () => {
-    const allSandwiches = getAllSandwiches()
-    setSandwiches(allSandwiches)
+  const loadSandwiches = async () => {
+    try {
+      const allSandwiches = await getAllSandwiches()
+      setSandwiches(allSandwiches)
+    } catch (error) {
+      alert('Error loading sandwiches: ' + error.message)
+    }
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
 
     const price = parseFloat(formData.price)
@@ -33,9 +39,9 @@ function SandwichEditor({ onBack }) {
 
     try {
       if (editingSandwich) {
-        updateSandwich(editingSandwich.id, formData.name, formData.type, formData.ingredients, price)
+        await updateSandwich(editingSandwich.id, formData.name, formData.type, formData.ingredients, price)
       } else {
-        addSandwich(formData.name, formData.type, formData.ingredients, price)
+        await addSandwich(formData.name, formData.type, formData.ingredients, price)
       }
 
       loadSandwiches()
@@ -56,14 +62,25 @@ function SandwichEditor({ onBack }) {
     setShowForm(true)
   }
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this sandwich?')) {
       try {
-        deleteSandwich(id)
+        await deleteSandwich(id)
         loadSandwiches()
       } catch (error) {
         alert('Error deleting sandwich: ' + error.message)
       }
+    }
+  }
+
+  const handlePasswordSubmit = (e) => {
+    e.preventDefault()
+    if (passwordInput === 'sandwhich') {
+      setIsAuthenticated(true)
+      setPasswordInput('')
+    } else {
+      alert('Incorrect password')
+      setPasswordInput('')
     }
   }
 
@@ -85,6 +102,51 @@ function SandwichEditor({ onBack }) {
     acc[sandwich.type].push(sandwich)
     return acc
   }, {})
+
+  if (!isAuthenticated) {
+    return (
+      <div className="max-w-md mx-auto mt-20">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-8">
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r from-red-500 to-red-600 rounded-xl mb-4">
+              <span className="text-white text-xl">🔒</span>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Password Required</h2>
+            <p className="text-gray-600">Enter the password to access the sandwich editor</p>
+          </div>
+
+          <form onSubmit={handlePasswordSubmit} className="space-y-4">
+            <div>
+              <input
+                type="password"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent bg-gray-50 transition-all duration-200"
+                placeholder="Enter password"
+                required
+              />
+            </div>
+
+            <div className="flex space-x-4">
+              <button
+                type="submit"
+                className="flex-1 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl"
+              >
+                Access Editor
+              </button>
+              <button
+                type="button"
+                onClick={onBack}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-xl transition-all duration-200 border border-gray-200"
+              >
+                Back
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-4xl mx-auto">

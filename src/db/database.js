@@ -1,239 +1,286 @@
-import initSqlJs from 'sql.js';
+import { createClient } from '@supabase/supabase-js'
 
-// ANCHOR: database-initialization
-let db;
-let SQL;
+// ANCHOR: supabase-initialization
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-export async function initDatabase() {
-  if (!SQL) {
-    SQL = await initSqlJs({
-      locateFile: file => `https://sql.js.org/dist/${file}`
-    });
-  }
-
-  // Try to load existing database from localStorage
-  const savedDb = localStorage.getItem('ebyyard_db');
-  if (savedDb) {
-    const uint8Array = new Uint8Array(JSON.parse(savedDb));
-    db = new SQL.Database(uint8Array);
-  } else {
-    db = new SQL.Database();
-  }
-
-  // Create sandwiches table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS sandwiches (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      type TEXT NOT NULL CHECK (type IN ('Focaccia', 'Hoagie')),
-      ingredients TEXT NOT NULL,
-      price REAL NOT NULL
-    )
-  `);
-
-  // Create orders table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS orders (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      customer_name TEXT NOT NULL,
-      sandwich_id INTEGER NOT NULL,
-      notes TEXT,
-      order_date DATE DEFAULT CURRENT_DATE,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (sandwich_id) REFERENCES sandwiches (id)
-    )
-  `);
-
-  // Insert default sandwiches if none exist
-  const sandwichCount = db.exec('SELECT COUNT(*) as count FROM sandwiches')[0];
-  if (!sandwichCount || sandwichCount.values[0][0] === 0) {
-    insertDefaultSandwiches();
-  }
-
-  // Save database to localStorage
-  saveDatabase();
-
-  return db;
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error('Missing Supabase environment variables')
 }
 
-function saveDatabase() {
-  if (db) {
-    const data = db.export();
-    localStorage.setItem('ebyyard_db', JSON.stringify(Array.from(data)));
-  }
-}
-
-function insertDefaultSandwiches() {
-  // Default Focaccia sandwiches
-  db.exec(`INSERT INTO sandwiches (name, type, ingredients, price) VALUES ('Margherita', 'Focaccia', 'Fresh mozzarella, tomatoes, basil, olive oil', 12.99)`);
-  db.exec(`INSERT INTO sandwiches (name, type, ingredients, price) VALUES ('Prosciutto', 'Focaccia', 'Prosciutto, arugula, tomatoes, balsamic glaze', 15.99)`);
-  db.exec(`INSERT INTO sandwiches (name, type, ingredients, price) VALUES ('Veggie', 'Focaccia', 'Roasted vegetables, goat cheese, pesto', 13.99)`);
-
-  // Default Hoagie sandwiches
-  db.exec(`INSERT INTO sandwiches (name, type, ingredients, price) VALUES ('Italian', 'Hoagie', 'Salami, ham, provolone, lettuce, tomato, oil & vinegar', 11.99)`);
-  db.exec(`INSERT INTO sandwiches (name, type, ingredients, price) VALUES ('Turkey Club', 'Hoagie', 'Turkey, bacon, lettuce, tomato, mayo', 12.99)`);
-  db.exec(`INSERT INTO sandwiches (name, type, ingredients, price) VALUES ('Chicken Parm', 'Hoagie', 'Breaded chicken, marinara, mozzarella', 13.99)`);
-
-  saveDatabase();
-}
+const supabase = createClient(supabaseUrl, supabaseKey)
 
 // ANCHOR: sandwich-crud-operations
-export function getAllSandwiches() {
-  const result = db.exec('SELECT * FROM sandwiches ORDER BY type, name');
-  if (!result[0]) return [];
+export async function getAllSandwiches() {
+  const { data, error } = await supabase
+    .from('sandwiches')
+    .select('*')
+    .order('type')
+    .order('name')
 
-  const { columns, values } = result[0];
-  return values.map(row => {
-    const obj = {};
-    columns.forEach((col, index) => {
-      obj[col] = row[index];
-    });
-    return obj;
-  });
+  if (error) {
+    console.error('Error fetching sandwiches:', error)
+    throw new Error('Failed to fetch sandwiches')
+  }
+
+  return data || []
 }
 
-export function getSandwichById(id) {
-  const result = db.exec(`SELECT * FROM sandwiches WHERE id = ${id}`);
-  if (!result[0] || !result[0].values[0]) return null;
+export async function getSandwichById(id) {
+  const { data, error } = await supabase
+    .from('sandwiches')
+    .select('*')
+    .eq('id', id)
+    .single()
 
-  const { columns, values } = result[0];
-  const obj = {};
-  columns.forEach((col, index) => {
-    obj[col] = values[0][index];
-  });
-  return obj;
+  if (error) {
+    console.error('Error fetching sandwich:', error)
+    return null
+  }
+
+  return data
 }
 
-export function addSandwich(name, type, ingredients, price) {
-  db.exec(`INSERT INTO sandwiches (name, type, ingredients, price) VALUES ('${name}', '${type}', '${ingredients}', ${price})`);
-  saveDatabase();
-  return { success: true };
+export async function addSandwich(name, type, ingredients, price) {
+  const { data, error } = await supabase
+    .from('sandwiches')
+    .insert([{ name, type, ingredients, price }])
+    .select()
+
+  if (error) {
+    console.error('Error adding sandwich:', error)
+    throw new Error('Failed to add sandwich')
+  }
+
+  return { success: true, data: data[0] }
 }
 
-export function updateSandwich(id, name, type, ingredients, price) {
-  db.exec(`UPDATE sandwiches SET name = '${name}', type = '${type}', ingredients = '${ingredients}', price = ${price} WHERE id = ${id}`);
-  saveDatabase();
-  return { success: true };
+export async function updateSandwich(id, name, type, ingredients, price) {
+  const { data, error } = await supabase
+    .from('sandwiches')
+    .update({ name, type, ingredients, price })
+    .eq('id', id)
+    .select()
+
+  if (error) {
+    console.error('Error updating sandwich:', error)
+    throw new Error('Failed to update sandwich')
+  }
+
+  return { success: true, data: data[0] }
 }
 
-export function deleteSandwich(id) {
-  db.exec(`DELETE FROM sandwiches WHERE id = ${id}`);
-  saveDatabase();
-  return { success: true };
+export async function deleteSandwich(id) {
+  const { error } = await supabase
+    .from('sandwiches')
+    .delete()
+    .eq('id', id)
+
+  if (error) {
+    console.error('Error deleting sandwich:', error)
+    throw new Error('Failed to delete sandwich')
+  }
+
+  return { success: true }
 }
 
 // ANCHOR: order-operations
-export function addOrder(customerName, sandwichId, notes = '') {
-  db.exec(`INSERT INTO orders (customer_name, sandwich_id, notes) VALUES ('${customerName}', ${sandwichId}, '${notes}')`);
-  saveDatabase();
-  return { success: true };
+export async function addOrder(customerName, sandwichId, notes = '') {
+  const { data, error } = await supabase
+    .from('orders')
+    .insert([{
+      customer_name: customerName,
+      sandwich_id: sandwichId,
+      notes
+    }])
+    .select()
+
+  if (error) {
+    console.error('Error adding order:', error)
+    throw new Error('Failed to add order')
+  }
+
+  return { success: true, data: data[0] }
 }
 
-export function getTodaysOrders() {
-  const result = db.exec(`
-    SELECT
-      o.id,
-      o.customer_name,
-      o.notes,
-      o.created_at,
-      s.name as sandwich_name,
-      s.type as sandwich_type,
-      s.price as sandwich_price
-    FROM orders o
-    JOIN sandwiches s ON o.sandwich_id = s.id
-    WHERE o.order_date = date('now')
-    ORDER BY o.created_at
-  `);
+export async function getTodaysOrders() {
+  const today = new Date().toISOString().split('T')[0]
 
-  if (!result[0]) return [];
+  const { data, error } = await supabase
+    .from('orders')
+    .select(`
+      id,
+      customer_name,
+      notes,
+      created_at,
+      sandwiches!inner (
+        name,
+        type,
+        price
+      )
+    `)
+    .eq('order_date', today)
+    .order('created_at')
 
-  const { columns, values } = result[0];
-  return values.map(row => {
-    const obj = {};
-    columns.forEach((col, index) => {
-      obj[col] = row[index];
-    });
-    return obj;
-  });
+  if (error) {
+    console.error('Error fetching todays orders:', error)
+    throw new Error('Failed to fetch orders')
+  }
+
+  // Transform the data to match the old format
+  const transformedData = data?.map(order => ({
+    id: order.id,
+    customer_name: order.customer_name,
+    notes: order.notes,
+    created_at: order.created_at,
+    sandwich_name: order.sandwiches.name,
+    sandwich_type: order.sandwiches.type,
+    sandwich_price: order.sandwiches.price
+  })) || []
+
+  return transformedData
 }
 
-export function getTodaysOrderSummary() {
-  const result = db.exec(`
-    SELECT
-      s.name as sandwich_name,
-      s.price as sandwich_price,
-      COUNT(*) as quantity,
-      (s.price * COUNT(*)) as total_price
-    FROM orders o
-    JOIN sandwiches s ON o.sandwich_id = s.id
-    WHERE o.order_date = date('now')
-    GROUP BY s.id, s.name, s.price
-    ORDER BY s.name
-  `);
+export async function getTodaysOrderSummary() {
+  const today = new Date().toISOString().split('T')[0]
 
-  if (!result[0]) return [];
+  const { data, error } = await supabase
+    .from('orders')
+    .select(`
+      sandwiches!inner (
+        name,
+        price
+      )
+    `)
+    .eq('order_date', today)
 
-  const { columns, values } = result[0];
-  return values.map(row => {
-    const obj = {};
-    columns.forEach((col, index) => {
-      obj[col] = row[index];
-    });
-    return obj;
-  });
+  if (error) {
+    console.error('Error fetching order summary:', error)
+    throw new Error('Failed to fetch order summary')
+  }
+
+  // Group by sandwich and calculate totals
+  const summary = {}
+  data?.forEach(order => {
+    const sandwichName = order.sandwiches.name
+    const price = parseFloat(order.sandwiches.price)
+
+    if (summary[sandwichName]) {
+      summary[sandwichName].quantity += 1
+      summary[sandwichName].total_price += price
+    } else {
+      summary[sandwichName] = {
+        sandwich_name: sandwichName,
+        sandwich_price: price,
+        quantity: 1,
+        total_price: price
+      }
+    }
+  })
+
+  return Object.values(summary).sort((a, b) => a.sandwich_name.localeCompare(b.sandwich_name))
 }
 
-export function getTodaysTotalAmount() {
-  const result = db.exec(`
-    SELECT SUM(s.price) as total
-    FROM orders o
-    JOIN sandwiches s ON o.sandwich_id = s.id
-    WHERE o.order_date = date('now')
-  `);
+export async function getTodaysTotalAmount() {
+  const today = new Date().toISOString().split('T')[0]
 
-  if (!result[0] || !result[0].values[0]) return 0;
-  return result[0].values[0][0] || 0;
+  const { data, error } = await supabase
+    .from('orders')
+    .select(`
+      sandwiches!inner (
+        price
+      )
+    `)
+    .eq('order_date', today)
+
+  if (error) {
+    console.error('Error fetching total amount:', error)
+    throw new Error('Failed to fetch total amount')
+  }
+
+  const total = data?.reduce((sum, order) => {
+    return sum + parseFloat(order.sandwiches.price)
+  }, 0) || 0
+
+  return total
 }
 
 // ANCHOR: order-crud-operations
-export function getOrderById(id) {
-  const result = db.exec(`
-    SELECT
-      o.id,
-      o.customer_name,
-      o.sandwich_id,
-      o.notes,
-      o.created_at,
-      s.name as sandwich_name,
-      s.type as sandwich_type,
-      s.price as sandwich_price
-    FROM orders o
-    JOIN sandwiches s ON o.sandwich_id = s.id
-    WHERE o.id = ${id}
-  `);
+export async function getOrderById(id) {
+  const { data, error } = await supabase
+    .from('orders')
+    .select(`
+      id,
+      customer_name,
+      sandwich_id,
+      notes,
+      created_at,
+      sandwiches!inner (
+        name,
+        type,
+        price
+      )
+    `)
+    .eq('id', id)
+    .single()
 
-  if (!result[0] || !result[0].values[0]) return null;
+  if (error) {
+    console.error('Error fetching order:', error)
+    return null
+  }
 
-  const { columns, values } = result[0];
-  const obj = {};
-  columns.forEach((col, index) => {
-    obj[col] = values[0][index];
-  });
-  return obj;
+  // Transform to match old format
+  return {
+    id: data.id,
+    customer_name: data.customer_name,
+    sandwich_id: data.sandwich_id,
+    notes: data.notes,
+    created_at: data.created_at,
+    sandwich_name: data.sandwiches.name,
+    sandwich_type: data.sandwiches.type,
+    sandwich_price: data.sandwiches.price
+  }
 }
 
-export function updateOrder(id, customerName, sandwichId, notes = '') {
-  db.exec(`UPDATE orders SET customer_name = '${customerName}', sandwich_id = ${sandwichId}, notes = '${notes}' WHERE id = ${id}`);
-  saveDatabase();
-  return { success: true };
+export async function updateOrder(id, customerName, sandwichId, notes = '') {
+  const { data, error } = await supabase
+    .from('orders')
+    .update({
+      customer_name: customerName,
+      sandwich_id: sandwichId,
+      notes
+    })
+    .eq('id', id)
+    .select()
+
+  if (error) {
+    console.error('Error updating order:', error)
+    throw new Error('Failed to update order')
+  }
+
+  return { success: true, data: data[0] }
 }
 
-export function deleteOrder(id) {
-  db.exec(`DELETE FROM orders WHERE id = ${id}`);
-  saveDatabase();
-  return { success: true };
+export async function deleteOrder(id) {
+  const { error } = await supabase
+    .from('orders')
+    .delete()
+    .eq('id', id)
+
+  if (error) {
+    console.error('Error deleting order:', error)
+    throw new Error('Failed to delete order')
+  }
+
+  return { success: true }
+}
+
+// Legacy function for compatibility - no longer needed with Supabase
+export async function initDatabase() {
+  // Supabase handles initialization automatically
+  return true
 }
 
 export function getDatabase() {
-  return db;
+  return supabase
 }
