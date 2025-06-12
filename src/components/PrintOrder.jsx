@@ -15,6 +15,8 @@ function PrintOrder({ onBack }) {
     notes: ''
   })
 
+  const TAX_RATE = 0.13
+
   useEffect(() => {
     loadOrderData()
     loadSandwiches()
@@ -131,9 +133,9 @@ function PrintOrder({ onBack }) {
       </div>
 
       <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-6 sm:p-8 print:bg-white print:shadow-none print:p-0 print:rounded-none print:border-none">
-        <div className="text-center mb-8 print:mb-8">
-          <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent print:text-black print:bg-none">EbyYard Daily Orders</h1>
-          <p className="text-gray-600 print:text-black text-base sm:text-lg mt-2">{getCurrentDate()}</p>
+        <div className="text-center mb-8 print:mb-4">
+          <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent print:text-black print:bg-none print:text-lg">EbyYard Daily Orders</h1>
+          <p className="text-gray-600 print:text-black text-base sm:text-lg mt-2 print:text-sm print:mt-1">{getCurrentDate()}</p>
         </div>
 
         {orders.length === 0 ? (
@@ -157,32 +159,59 @@ function PrintOrder({ onBack }) {
                   💡 You can edit or delete orders using the buttons on each order
                 </div>
               </div>
-              <div className="space-y-3 sm:space-y-4">
+              <div className="space-y-3 sm:space-y-4 print:space-y-1">
                 {orders.map((order, index) => (
-                  <div key={order.id} className="bg-white/60 backdrop-blur-sm border border-gray-200 print:border-black rounded-xl p-4 sm:p-6 print:rounded-none print:bg-white hover:bg-white hover:shadow-lg transition-all duration-300">
-                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start space-y-2 sm:space-y-0">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-medium print:bg-gray-800">
+                  <div key={order.id} className="bg-white/60 backdrop-blur-sm border border-gray-200 print:border-black rounded-xl p-4 sm:p-6 print:rounded-none print:bg-white print:p-2 hover:bg-white hover:shadow-lg transition-all duration-300">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start space-y-2 sm:space-y-0 print:flex-row print:items-center print:space-y-0">
+                      <div className="flex-1 print:flex print:items-center print:space-x-4">
+                        <div className="flex items-center space-x-2 mb-2 print:mb-0">
+                          <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-medium print:bg-gray-800 print:text-xs">
                             #{index + 1}
                           </span>
-                          <h4 className="font-bold text-lg text-gray-800 print:text-black">
+                          <h4 className="font-bold text-lg text-gray-800 print:text-black print:text-sm">
                             {order.customer_name}
                           </h4>
                         </div>
-                        <div className="flex items-center space-x-2 mb-1">
-                          <p className="text-gray-700 print:text-black font-medium">
+                        <div className="flex items-center space-x-2 mb-1 print:mb-0">
+                          <p className="text-gray-700 print:text-black font-medium print:text-sm">
                             {order.sandwich_name}
                           </p>
                         </div>
-                        <p className="text-xs text-gray-500 print:text-black">
-                          Ordered at {formatDate(order.created_at)}
-                        </p>
+                        {order.notes && (
+                          <div className="print:inline-block">
+                            <span className="text-xs text-gray-500 print:text-black">
+                              Note: {order.notes}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                      <div className="flex flex-col items-end space-y-2">
-                        <p className="text-emerald-600 print:text-black font-bold text-xl">
-                          ${order.sandwich_price.toFixed(2)}
-                        </p>
+                      <div className="flex flex-col items-end space-y-2 print:flex-row print:items-center print:space-y-0 print:space-x-4">
+                        <div className="text-right print:text-sm">
+                          <div className="print:hidden">
+                            <p className="text-gray-600 text-sm">
+                              Subtotal: ${order.sandwich_price.toFixed(2)}
+                            </p>
+                            <p className="text-gray-600 text-sm">
+                              Tax: ${(order.sandwich_price * TAX_RATE).toFixed(2)}
+                            </p>
+                            <p className="text-emerald-600 font-bold text-xl border-t border-gray-300 pt-1">
+                              Total: ${(order.sandwich_price * (1 + TAX_RATE)).toFixed(2)}
+                            </p>
+                          </div>
+                          <div className="hidden print:block">
+                            <span className="text-gray-600 text-xs bg-gray-100 px-2 py-1 rounded mr-1">
+                              ${order.sandwich_price.toFixed(2)}
+                            </span>
+                            <span className="text-gray-600 text-xs">+</span>
+                            <span className="text-gray-600 text-xs bg-gray-100 px-2 py-1 rounded mx-1">
+                              ${(order.sandwich_price * TAX_RATE).toFixed(2)} tax
+                            </span>
+                            <span className="text-gray-600 text-xs">=</span>
+                            <span className="text-emerald-600 font-bold text-sm bg-emerald-100 px-2 py-1 rounded ml-1">
+                              ${(order.sandwich_price * (1 + TAX_RATE)).toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
                         <div className="flex space-x-2 print:hidden">
                           <button
                             onClick={() => handleEdit(order)}
@@ -202,10 +231,10 @@ function PrintOrder({ onBack }) {
                       </div>
                     </div>
                     {order.notes && (
-                      <div className="mt-3 p-3 bg-gradient-to-r from-amber-50 to-yellow-50 print:bg-gray-100 rounded-lg border border-amber-200 print:border-gray-300">
+                      <div className="mt-3 p-3 bg-gradient-to-r from-amber-50 to-yellow-50 print:hidden rounded-lg border border-amber-200">
                         <div className="flex items-start space-x-2">
-                          <span className="text-amber-600 print:hidden">💬</span>
-                          <p className="text-sm text-gray-700 print:text-black">
+                          <span className="text-amber-600">💬</span>
+                          <p className="text-sm text-gray-700">
                             <span className="font-medium">Special Notes:</span> {order.notes}
                           </p>
                         </div>
@@ -216,42 +245,54 @@ function PrintOrder({ onBack }) {
               </div>
             </div>
 
-            <div className="border-t-2 border-gray-200 print:border-black pt-8">
-              <div className="flex items-center space-x-2 mb-6">
-                <span className="text-xl">📊</span>
-                <h3 className="text-xl font-bold text-gray-800 print:text-black">Order Summary</h3>
+            <div className="border-t-2 border-gray-200 print:border-black pt-8 print:pt-4">
+              <div className="flex items-center space-x-2 mb-6 print:mb-3">
+                <span className="text-xl print:hidden">📊</span>
+                <h3 className="text-xl font-bold text-gray-800 print:text-black print:text-base">Order Summary</h3>
               </div>
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 print:bg-gray-100 rounded-xl p-6 print:rounded-none border border-blue-200 print:border-gray-300">
-                <div className="space-y-3 mb-6">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 print:bg-gray-100 rounded-xl p-6 print:rounded-none print:p-3 border border-blue-200 print:border-gray-300">
+                <div className="space-y-3 mb-6 print:space-y-1 print:mb-3">
                   {summary.map((item) => (
-                    <div key={item.sandwich_name} className="flex justify-between items-center p-3 bg-white/60 print:bg-white rounded-lg border border-blue-100 print:border-gray-200">
-                      <div className="flex items-center space-x-3">
-                        <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-medium print:bg-gray-800">
+                    <div key={item.sandwich_name} className="flex justify-between items-center p-3 bg-white/60 print:bg-white print:p-1 rounded-lg border border-blue-100 print:border-gray-200">
+                      <div className="flex items-center space-x-3 print:space-x-2">
+                        <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-medium print:bg-gray-800 print:px-1">
                           {item.quantity}x
                         </span>
-                        <span className="font-medium text-gray-800 print:text-black">
+                        <span className="font-medium text-gray-800 print:text-black print:text-sm">
                           {item.sandwich_name}
                         </span>
                       </div>
-                      <span className="font-bold text-emerald-600 print:text-black text-lg">
+                      <span className="font-bold text-emerald-600 print:text-black text-lg print:text-sm">
                         ${item.total_price.toFixed(2)}
                       </span>
                     </div>
                   ))}
                 </div>
 
-                <div className="border-t-2 border-blue-200 print:border-black pt-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="text-center sm:text-left">
-                      <p className="text-sm text-gray-600 print:text-black">Total Orders</p>
-                      <p className="text-2xl font-bold text-gray-800 print:text-black">
+                <div className="border-t-2 border-blue-200 print:border-black pt-6 print:pt-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 print:grid-cols-4 print:gap-2 print:text-xs">
+                    <div className="text-center sm:text-left print:text-left">
+                      <p className="text-sm text-gray-600 print:text-black print:text-xs">Orders</p>
+                      <p className="text-2xl font-bold text-gray-800 print:text-black print:text-sm">
                         {orders.length}
                       </p>
                     </div>
-                    <div className="text-center sm:text-right">
-                      <p className="text-sm text-gray-600 print:text-black">Total Revenue</p>
-                      <p className="text-3xl font-bold text-emerald-600 print:text-black">
+                    <div className="text-center print:text-left">
+                      <p className="text-sm text-gray-600 print:text-black print:text-xs">Subtotal</p>
+                      <p className="text-2xl font-bold text-gray-800 print:text-black print:text-sm">
                         ${totalAmount.toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="text-center sm:text-right print:text-left">
+                      <p className="text-sm text-gray-600 print:text-black print:text-xs">Tax ({(TAX_RATE * 100).toFixed(0)}%)</p>
+                      <p className="text-xl font-bold text-gray-800 print:text-black print:text-sm">
+                        ${(totalAmount * TAX_RATE).toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="text-center print:text-center col-span-3">
+                      <p className="text-sm text-gray-600 print:text-black print:text-xs">Total</p>
+                      <p className="text-4xl font-bold text-emerald-600 print:text-black print:text-base print:font-bold">
+                        ${(totalAmount * (1 + TAX_RATE)).toFixed(2)}
                       </p>
                     </div>
                   </div>
@@ -259,8 +300,8 @@ function PrintOrder({ onBack }) {
               </div>
             </div>
 
-            <div className="mt-8 text-center print:mt-12">
-              <div className="inline-flex items-center space-x-2 text-gray-500 print:text-black text-sm bg-gray-100 print:bg-transparent px-4 py-2 rounded-lg print:rounded-none border print:border-gray-400">
+            <div className="mt-8 text-center print:mt-4">
+              <div className="inline-flex items-center space-x-2 text-gray-500 print:text-black text-sm bg-gray-100 print:bg-transparent px-4 py-2 rounded-lg print:rounded-none border print:border-gray-400 print:text-xs">
                 <span className="print:hidden">🕒</span>
                 <span>Generated on {new Date().toLocaleString()}</span>
               </div>
