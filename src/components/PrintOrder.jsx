@@ -92,13 +92,6 @@ function PrintOrder({ onBack }) {
     window.print()
   }
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
-
   const getCurrentDate = () => {
     return new Date().toLocaleDateString('en-US', {
       weekday: 'long',
@@ -289,7 +282,7 @@ function PrintOrder({ onBack }) {
                         ${(totalAmount * TAX_RATE).toFixed(2)}
                       </p>
                     </div>
-                    <div className="text-center print:text-center col-span-3">
+                    <div className="text-center print:text-center col-span-3 print:col-span-1">
                       <p className="text-sm text-gray-600 print:text-black print:text-xs">Total</p>
                       <p className="text-4xl font-bold text-emerald-600 print:text-black print:text-base print:font-bold">
                         ${(totalAmount * (1 + TAX_RATE)).toFixed(2)}
