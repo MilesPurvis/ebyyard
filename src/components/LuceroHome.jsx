@@ -1,26 +1,18 @@
-// ANCHOR: home-screen-component
-function HomeScreen({ onNavigate, onBack }) {
+// ANCHOR: lucero-home-component
+function LuceroHome({ onNavigate, onBack }) {
   const buttons = [
     {
-      id: 'order',
-      title: 'Place Order',
-      description: 'Start a new sandwich order',
-      icon: '🍽️',
-      gradient: 'from-blue-500 to-blue-600',
-      hoverGradient: 'hover:from-blue-600 hover:to-blue-700',
+      id: 'coffee-order',
+      title: 'Place Coffee Order',
+      description: 'Start a new coffee order',
+      icon: '☕',
+      gradient: 'from-blue-800 to-blue-900',
+      hoverGradient: 'hover:from-blue-900 hover:to-slate-900',
     },
     {
-      id: 'edit',
-      title: 'Edit Menu',
-      description: 'Manage sandwich options',
-      icon: '✏️',
-      gradient: 'from-emerald-500 to-emerald-600',
-      hoverGradient: 'hover:from-emerald-600 hover:to-emerald-700',
-    },
-    {
-      id: 'print',
-      title: 'View Orders',
-      description: 'See and print today\'s orders',
+      id: 'coffee-print',
+      title: 'View Coffee Orders',
+      description: 'See and print today\'s coffee orders',
       icon: '📋',
       gradient: 'from-violet-500 to-violet-600',
       hoverGradient: 'hover:from-violet-600 hover:to-violet-700',
@@ -30,23 +22,24 @@ function HomeScreen({ onNavigate, onBack }) {
   return (
     <div className="max-w-sm sm:max-w-md lg:max-w-lg mx-auto space-y-6">
       <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-6 sm:p-8">
-        {onBack && (
-          <div className="flex items-center justify-between mb-4">
-            <button
-              onClick={onBack}
-              className="text-gray-500 hover:text-gray-700 transition-colors duration-200"
-            >
-              ← Back
-            </button>
-          </div>
-        )}
+        <div className="flex items-center justify-between mb-4">
+          <button
+            onClick={onBack}
+            className="text-gray-500 hover:text-gray-700 transition-colors duration-200"
+          >
+            ← Back
+          </button>
+        </div>
 
-        <h2 className="text-xl sm:text-2xl font-bold text-center mb-2 text-gray-800">
-          Welcome Back!
-        </h2>
-        <p className="text-center text-gray-600 text-sm sm:text-base mb-8">
-          What would you like to do today?
-        </p>
+        <div className="text-center mb-8">
+          <div className="text-4xl mb-4">☕</div>
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">
+            LuceroYard
+          </h2>
+          <p className="text-gray-600 text-sm sm:text-base">
+            Lucero Canteen
+          </p>
+        </div>
 
         <div className="space-y-4">
           {buttons.map((button) => (
@@ -77,4 +70,4 @@ function HomeScreen({ onNavigate, onBack }) {
   )
 }
 
-export default HomeScreen
+export default LuceroHome

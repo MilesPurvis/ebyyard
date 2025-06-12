@@ -281,6 +281,127 @@ export async function initDatabase() {
   return true
 }
 
+// ANCHOR: coffee-order-operations
+export async function addCoffeeOrder(customerName, drinkName, milkType, notes = '') {
+  const { data, error } = await supabase
+    .from('coffee_orders')
+    .insert([{
+      customer_name: customerName,
+      drink_name: drinkName,
+      milk_type: milkType,
+      notes
+    }])
+    .select()
+
+  if (error) {
+    console.error('Error adding coffee order:', error)
+    throw new Error('Failed to add coffee order')
+  }
+
+  return { success: true, data: data[0] }
+}
+
+export async function getTodaysCoffeeOrders() {
+  const today = new Date().toISOString().split('T')[0]
+
+  const { data, error } = await supabase
+    .from('coffee_orders')
+    .select('*')
+    .eq('order_date', today)
+    .order('created_at')
+
+  if (error) {
+    console.error('Error fetching todays coffee orders:', error)
+    throw new Error('Failed to fetch coffee orders')
+  }
+
+  return data || []
+}
+
+export async function getTodaysCoffeeOrderSummary() {
+  const today = new Date().toISOString().split('T')[0]
+
+  const { data, error } = await supabase
+    .from('coffee_orders')
+    .select('drink_name, milk_type')
+    .eq('order_date', today)
+
+  if (error) {
+    console.error('Error fetching coffee order summary:', error)
+    throw new Error('Failed to fetch coffee order summary')
+  }
+
+  // Group by drink name and milk type
+  const summary = {}
+  data?.forEach(order => {
+    const key = `${order.drink_name}-${order.milk_type}`
+    
+    if (summary[key]) {
+      summary[key].quantity += 1
+    } else {
+      summary[key] = {
+        drink_name: order.drink_name,
+        milk_type: order.milk_type,
+        quantity: 1
+      }
+    }
+  })
+
+  return Object.values(summary).sort((a, b) => a.drink_name.localeCompare(b.drink_name))
+}
+
+export async function getTodaysCoffeeTotalAmount() {
+  const today = new Date().toISOString().split('T')[0]
+
+  const { data, error } = await supabase
+    .from('coffee_orders')
+    .select('*')
+    .eq('order_date', today)
+
+  if (error) {
+    console.error('Error fetching coffee total amount:', error)
+    throw new Error('Failed to fetch coffee total amount')
+  }
+
+  // Since we removed prices, return count of orders
+  return data?.length || 0
+}
+
+// ANCHOR: coffee-helper-functions
+function calculateCoffeeOrderTotal(coffeeItems) {
+  const coffeeTypes = [
+    { id: 'cappuccino', name: 'Cappuccino', price: 4.50 },
+    { id: 'flat-white', name: 'Flat White', price: 4.75 },
+    { id: 'matcha-latte', name: 'Matcha Latte', price: 5.25 },
+    { id: 'strawberry-latte', name: 'Strawberry Latte', price: 5.50 },
+    { id: 'matcha-strawberry', name: 'Matcha Strawberry', price: 5.75 }
+  ]
+
+  return coffeeItems.reduce((total, item) => {
+    const coffeeType = coffeeTypes.find(ct => ct.id === item.coffeeType)
+    return total + (coffeeType.price * item.quantity)
+  }, 0)
+}
+
+function getCoffeeTypeById(id) {
+  const coffeeTypes = [
+    { id: 'cappuccino', name: 'Cappuccino', price: 4.50 },
+    { id: 'flat-white', name: 'Flat White', price: 4.75 },
+    { id: 'matcha-latte', name: 'Matcha Latte', price: 5.25 },
+    { id: 'strawberry-latte', name: 'Strawberry Latte', price: 5.50 },
+    { id: 'matcha-strawberry', name: 'Matcha Strawberry', price: 5.75 }
+  ]
+  return coffeeTypes.find(ct => ct.id === id) || { name: 'Unknown', price: 0 }
+}
+
+function getMilkTypeById(id) {
+  const milkTypes = [
+    { id: 'oat', name: 'Oat Milk' },
+    { id: 'cow', name: 'Cow Milk' }
+  ]
+  return milkTypes.find(mt => mt.id === id) || { name: 'Unknown' }
+}
+
 export function getDatabase() {
   return supabase
 }
