@@ -61,7 +61,7 @@ function App() {
           >
             16 Eby St N, Kitchener, ON
           </a>
-          <a href="tel:+15197411111" className="text-blue-600 transition-colors text-sm sm:text-base block">(519) 741-1111</a>
+          <a href="tel:+15489945072" className="text-blue-600 transition-colors text-sm sm:text-base block">(548) 994-5072</a>
         </header>
         {renderCurrentView()}
       </div>
