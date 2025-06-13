@@ -283,19 +283,23 @@ export async function initDatabase() {
 
 // ANCHOR: coffee-order-operations
 export async function addCoffeeOrder(customerName, drinkName, milkType, notes = '') {
+  const today = new Date().toISOString().split('T')[0]
+  
   const { data, error } = await supabase
     .from('coffee_orders')
     .insert([{
       customer_name: customerName,
       drink_name: drinkName,
       milk_type: milkType,
-      notes
+      notes,
+      order_date: today
     }])
     .select()
 
   if (error) {
     console.error('Error adding coffee order:', error)
-    throw new Error('Failed to add coffee order')
+    const errorMessage = error.message || error.details || error.hint || 'Unknown database error'
+    throw new Error(`Failed to add coffee order: ${errorMessage}`)
   }
 
   return { success: true, data: data[0] }
@@ -367,40 +371,40 @@ export async function getTodaysCoffeeTotalAmount() {
   return data?.length || 0
 }
 
-// ANCHOR: coffee-helper-functions
-function calculateCoffeeOrderTotal(coffeeItems) {
-  const coffeeTypes = [
-    { id: 'cappuccino', name: 'Cappuccino', price: 4.50 },
-    { id: 'flat-white', name: 'Flat White', price: 4.75 },
-    { id: 'matcha-latte', name: 'Matcha Latte', price: 5.25 },
-    { id: 'strawberry-latte', name: 'Strawberry Latte', price: 5.50 },
-    { id: 'matcha-strawberry', name: 'Matcha Strawberry', price: 5.75 }
-  ]
+export async function deleteCoffeeOrder(id) {
+  const { error } = await supabase
+    .from('coffee_orders')
+    .delete()
+    .eq('id', id)
 
-  return coffeeItems.reduce((total, item) => {
-    const coffeeType = coffeeTypes.find(ct => ct.id === item.coffeeType)
-    return total + (coffeeType.price * item.quantity)
-  }, 0)
+  if (error) {
+    console.error('Error deleting coffee order:', error)
+    throw new Error('Failed to delete coffee order')
+  }
+
+  return { success: true }
 }
 
-function getCoffeeTypeById(id) {
-  const coffeeTypes = [
-    { id: 'cappuccino', name: 'Cappuccino', price: 4.50 },
-    { id: 'flat-white', name: 'Flat White', price: 4.75 },
-    { id: 'matcha-latte', name: 'Matcha Latte', price: 5.25 },
-    { id: 'strawberry-latte', name: 'Strawberry Latte', price: 5.50 },
-    { id: 'matcha-strawberry', name: 'Matcha Strawberry', price: 5.75 }
-  ]
-  return coffeeTypes.find(ct => ct.id === id) || { name: 'Unknown', price: 0 }
+export async function updateCoffeeOrder(id, customerName, drinkName, milkType, notes = '') {
+  const { data, error } = await supabase
+    .from('coffee_orders')
+    .update({
+      customer_name: customerName,
+      drink_name: drinkName,
+      milk_type: milkType,
+      notes
+    })
+    .eq('id', id)
+    .select()
+
+  if (error) {
+    console.error('Error updating coffee order:', error)
+    throw new Error('Failed to update coffee order')
+  }
+
+  return { success: true, data: data[0] }
 }
 
-function getMilkTypeById(id) {
-  const milkTypes = [
-    { id: 'oat', name: 'Oat Milk' },
-    { id: 'cow', name: 'Cow Milk' }
-  ]
-  return milkTypes.find(mt => mt.id === id) || { name: 'Unknown' }
-}
 
 export function getDatabase() {
   return supabase

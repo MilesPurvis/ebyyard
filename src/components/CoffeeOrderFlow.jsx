@@ -32,11 +32,12 @@ function CoffeeOrderFlow({ onBack }) {
       if (selectedCoffee.hasBaseOption) {
         drinkName = `${drinkBase === 'coffee' ? 'Coffee' : 'Matcha'} ${selectedCoffee.name}`
       }
+
       await addCoffeeOrder(customerName.trim(), drinkName, milkType, notes)
       setStep(3)
     } catch (error) {
       console.error('Error submitting coffee order:', error)
-      alert('Failed to submit order. Please try again.')
+      alert(`Failed to submit order: ${error.message}. Please try again.`)
     } finally {
       setIsSubmitting(false)
     }
@@ -117,116 +118,145 @@ function CoffeeOrderFlow({ onBack }) {
             Choose Your Coffee
           </h2>
           <p className="text-center text-gray-600 mb-6">
-            Hello {customerName}! Select your drink and milk preference.
+            Hello {customerName}! Select your drink below.
           </p>
 
-          {/* Milk Toggle */}
-          <div className="flex justify-center mb-4">
-            <div className="bg-gray-100 rounded-lg p-1 flex">
-              {/* Show Black option only for drip coffee, tea, and pour over */}
-              {selectedCoffee && ['drip-coffee', 'tea', 'pour-over'].includes(selectedCoffee.id) && (
-                <button
-                  onClick={() => setMilkType('none')}
-                  className={`px-3 py-2 rounded-md transition-all duration-200 text-sm ${
-                    milkType === 'none'
-                      ? 'bg-gray-700 text-white shadow-md'
-                      : 'text-gray-600 hover:text-gray-800'
-                  }`}
-                >
-                  Black
-                </button>
-              )}
-              <button
-                onClick={() => setMilkType('oat')}
-                className={`px-3 py-2 rounded-md transition-all duration-200 text-sm ${
-                  milkType === 'oat'
-                    ? 'bg-blue-800 text-white shadow-md'
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
-              >
-                Oat
-              </button>
-              <button
-                onClick={() => setMilkType('cow')}
-                className={`px-3 py-2 rounded-md transition-all duration-200 text-sm ${
-                  milkType === 'cow'
-                    ? 'bg-blue-800 text-white shadow-md'
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
-              >
-                Dairy
-              </button>
+          {/* Coffee Menu */}
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-3 text-center">Choose Your Drink</h3>
+            <div className="grid gap-3">
+              {coffeeTypes.map((coffee) => (
+                <div key={coffee.id}>
+                  <div className={`border-2 rounded-xl transition-all duration-200 ${
+                    selectedCoffee?.id === coffee.id
+                      ? 'border-blue-800 bg-blue-50 shadow-lg'
+                      : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                  }`}>
+                    <button
+                      onClick={() => {
+                        setSelectedCoffee(coffee);
+                        // Auto-switch milk for drinks that MUST have milk
+                        if (milkType === 'none' && !['drip-coffee', 'tea', 'pour-over'].includes(coffee.id)) {
+                          setMilkType('oat milk');
+                        }
+                      }}
+                      className="w-full p-4 text-left rounded-xl transition-all duration-200"
+                    >
+                      <div className="flex justify-between items-center">
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h3 className="font-semibold text-gray-800 text-lg">{coffee.name}</h3>
+                            </div>
+                            {selectedCoffee?.id === coffee.id && (
+                              <div className="text-blue-600 text-2xl">✓</div>
+                            )}
+                          </div>
+                          {coffee.hasBaseOption && (
+                            <p className="text-sm text-gray-600 mt-1">
+                              Available in Coffee or Matcha base
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+
+                  {/* Show options right below the selected drink */}
+                  {selectedCoffee?.id === coffee.id && (
+                    <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+                      {/* Base Selection for Lattes */}
+                      {coffee.hasBaseOption && (
+                        <div className="mb-4">
+                          <h4 className="font-semibold text-gray-800 mb-3 text-center">Choose Your Base</h4>
+                          <div className="grid grid-cols-2 gap-3">
+                            <button
+                              onClick={() => setDrinkBase('coffee')}
+                              className={`p-3 rounded-xl border-2 transition-all duration-200 text-sm font-medium ${
+                                drinkBase === 'coffee'
+                                  ? 'border-amber-600 bg-amber-600 text-white shadow-lg'
+                                  : 'border-gray-200 bg-white text-gray-700 hover:border-amber-300 hover:bg-amber-50'
+                              }`}
+                            >
+                              ☕ Coffee Base
+                            </button>
+                            <button
+                              onClick={() => setDrinkBase('matcha')}
+                              className={`p-3 rounded-xl border-2 transition-all duration-200 text-sm font-medium ${
+                                drinkBase === 'matcha'
+                                  ? 'border-green-600 bg-green-600 text-white shadow-lg'
+                                  : 'border-gray-200 bg-white text-gray-700 hover:border-green-300 hover:bg-green-50'
+                              }`}
+                            >
+                              🍵 Matcha Base
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Milk Selection */}
+                      <div>
+                        <h4 className="font-semibold text-gray-800 mb-3 text-center">Choose Your Milk</h4>
+                        <div className={`grid gap-2 ${['drip-coffee', 'tea', 'pour-over'].includes(coffee.id) ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                          {/* Only show Black option for tea, drip coffee, and pour over */}
+                          {['drip-coffee', 'tea', 'pour-over'].includes(coffee.id) && (
+                            <button
+                              onClick={() => setMilkType('none')}
+                              className={`p-3 rounded-xl border-2 transition-all duration-200 text-sm font-medium ${
+                                milkType === 'none'
+                                  ? 'border-gray-700 bg-gray-700 text-white shadow-lg'
+                                  : 'border-gray-200 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50'
+                              }`}
+                            >
+                              ☕ Black
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setMilkType('oat milk')}
+                            className={`p-3 rounded-xl border-2 transition-all duration-200 text-sm font-medium ${
+                              milkType === 'oat milk'
+                                ? 'border-blue-800 bg-blue-800 text-white shadow-lg'
+                                : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50'
+                            }`}
+                          >
+                            🌾 Oat
+                          </button>
+                          <button
+                            onClick={() => setMilkType('dairy milk')}
+                            className={`p-3 rounded-xl border-2 transition-all duration-200 text-sm font-medium ${
+                              milkType === 'dairy milk'
+                                ? 'border-blue-800 bg-blue-800 text-white shadow-lg'
+                                : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50'
+                            }`}
+                          >
+                            🥛 Dairy
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Coffee Menu */}
-          <div className="grid gap-3 mb-6">
-            {coffeeTypes.map((coffee) => (
-              <div key={coffee.id} className={`border rounded-lg transition-all duration-200 ${
-                selectedCoffee?.id === coffee.id
-                  ? 'border-blue-800 bg-blue-50 shadow-md'
-                  : 'border-gray-200'
-              }`}>
-                <button
-                  onClick={() => {
-                    setSelectedCoffee(coffee);
-                    // If switching to a drink that doesn't support "No Milk" and currently "none" is selected, switch to oat
-                    if (milkType === 'none' && !['drip-coffee', 'tea', 'pour-over'].includes(coffee.id)) {
-                      setMilkType('oat');
-                    }
-                  }}
-                  className="w-full p-4 text-left hover:bg-gray-50 rounded-lg transition-all duration-200"
-                >
-                  <div className="flex justify-between items-center">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <div>
-                          <h3 className="font-semibold text-gray-800">{coffee.name}</h3>
-                          <p className="text-blue-800 font-medium">${coffee.price.toFixed(2)}</p>
-                        </div>
-                        {/* Drink Base Options - show inline if this drink has base options and is selected */}
-                        {coffee.hasBaseOption && selectedCoffee?.id === coffee.id && (
-                          <div className="ml-4 flex gap-1">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setDrinkBase('coffee');
-                              }}
-                              className={`px-2 py-1 rounded-md transition-all duration-200 text-xs ${
-                                drinkBase === 'coffee'
-                                  ? 'bg-blue-800 text-white shadow-md'
-                                  : 'text-gray-600 hover:text-gray-800'
-                              }`}
-                            >
-                              Coffee
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setDrinkBase('matcha');
-                              }}
-                              className={`px-2 py-1 rounded-md transition-all duration-200 text-xs ${
-                                drinkBase === 'matcha'
-                                  ? 'bg-blue-800 text-white shadow-md'
-                                  : 'text-gray-600 hover:text-gray-800'
-                              }`}
-                            >
-                              Matcha
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      {selectedCoffee?.id === coffee.id && (
-                        <span className="text-blue-600 text-lg font-semibold">✓ Selected</span>
-                      )}
-                    </div>
-                  </div>
-                </button>
+          {/* Order Summary */}
+          {selectedCoffee && (
+            <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200">
+              <h4 className="font-semibold text-gray-800 mb-2 text-center">Your Order</h4>
+              <div className="text-center">
+                <p className="text-lg font-medium text-gray-800">
+                  {selectedCoffee.hasBaseOption
+                    ? `${drinkBase === 'coffee' ? 'Coffee' : 'Matcha'} ${selectedCoffee.name}`
+                    : selectedCoffee.name
+                  }
+                </p>
+                <p className="text-sm text-gray-600">
+                  with {milkType === 'none' ? 'black (no milk)' : milkType}
+                </p>
               </div>
-            ))}
-          </div>
+            </div>
+          )}
 
           <div className="space-y-4">
             <div>
@@ -288,7 +318,6 @@ function CoffeeOrderFlow({ onBack }) {
                 )}
               </div>
               <div className="text-right">
-                <p className="text-lg font-bold text-blue-800">${selectedCoffee.price.toFixed(2)}</p>
               </div>
             </div>
           </div>
