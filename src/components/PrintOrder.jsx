@@ -175,6 +175,16 @@ function PrintOrder({ onBack }) {
                             {order.sandwich_ingredients}
                           </div>
                         )}
+                        {order.addons && order.addons.length > 0 && (
+                          <div className="text-xs text-emerald-600 print:text-black print:text-xs mb-1 font-medium">
+                            Addons: {order.addons.map(a => a.name).join(', ')} (+${order.addons.reduce((sum, a) => sum + (a.price || 0), 0).toFixed(2)})
+                          </div>
+                        )}
+                        {order.cookie_quantity > 0 && (
+                          <div className="text-xs text-emerald-600 print:text-black print:text-xs mb-1 font-medium">
+                            {order.cookie_quantity} cookie{order.cookie_quantity !== 1 ? 's' : ''} (+${(order.cookie_quantity * 4).toFixed(2)})
+                          </div>
+                        )}
                         {order.notes && (
                           <div className="print:inline-block">
                             <span className="text-xs text-gray-500 print:text-black">
@@ -185,30 +195,39 @@ function PrintOrder({ onBack }) {
                       </div>
                       <div className="flex flex-col items-end space-y-2 print:flex-row print:items-center print:space-y-0 print:space-x-4">
                         <div className="text-right print:text-sm">
-                          <div className="print:hidden">
-                            <p className="text-gray-600 text-sm">
-                              Subtotal: ${order.sandwich_price.toFixed(2)}
-                            </p>
-                            <p className="text-gray-600 text-sm">
-                              Tax: ${(order.sandwich_price * TAX_RATE).toFixed(2)}
-                            </p>
-                            <p className="text-emerald-600 font-bold text-xl border-t border-gray-300 pt-1">
-                              Total: ${(order.sandwich_price * (1 + TAX_RATE)).toFixed(2)}
-                            </p>
-                          </div>
-                          <div className="hidden print:block">
-                            <span className="text-gray-600 text-xs bg-gray-100 px-2 py-1 rounded mr-1">
-                              ${order.sandwich_price.toFixed(2)}
-                            </span>
-                            <span className="text-gray-600 text-xs">+</span>
-                            <span className="text-gray-600 text-xs bg-gray-100 px-2 py-1 rounded mx-1">
-                              ${(order.sandwich_price * TAX_RATE).toFixed(2)} tax
-                            </span>
-                            <span className="text-gray-600 text-xs">=</span>
-                            <span className="text-emerald-600 font-bold text-sm bg-emerald-100 px-2 py-1 rounded ml-1">
-                              ${(order.sandwich_price * (1 + TAX_RATE)).toFixed(2)}
-                            </span>
-                          </div>
+                          {(() => {
+                            const total = order.sandwich_price
+                            const subtotal = total / (1 + TAX_RATE)
+                            const tax = total - subtotal
+                            return (
+                              <>
+                                <div className="print:hidden">
+                                  <p className="text-gray-600 text-sm">
+                                    Subtotal: ${subtotal.toFixed(2)}
+                                  </p>
+                                  <p className="text-gray-600 text-sm">
+                                    Tax: ${tax.toFixed(2)}
+                                  </p>
+                                  <p className="text-emerald-600 font-bold text-xl border-t border-gray-300 pt-1">
+                                    Total: ${total.toFixed(2)}
+                                  </p>
+                                </div>
+                                <div className="hidden print:block">
+                                  <span className="text-gray-600 text-xs bg-gray-100 px-2 py-1 rounded mr-1">
+                                    ${subtotal.toFixed(2)}
+                                  </span>
+                                  <span className="text-gray-600 text-xs">+</span>
+                                  <span className="text-gray-600 text-xs bg-gray-100 px-2 py-1 rounded mx-1">
+                                    ${tax.toFixed(2)} tax
+                                  </span>
+                                  <span className="text-gray-600 text-xs">=</span>
+                                  <span className="text-emerald-600 font-bold text-sm bg-emerald-100 px-2 py-1 rounded ml-1">
+                                    ${total.toFixed(2)}
+                                  </span>
+                                </div>
+                              </>
+                            )
+                          })()}
                         </div>
                         <div className="flex space-x-2 print:hidden">
                           <button
@@ -250,21 +269,43 @@ function PrintOrder({ onBack }) {
               </div>
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 print:bg-gray-100 rounded-xl p-6 print:rounded-none print:p-3 border border-blue-200 print:border-gray-300">
                 <div className="space-y-3 mb-6 print:space-y-1 print:mb-3">
-                  {summary.map((item) => (
-                    <div key={item.sandwich_name} className="flex justify-between items-center p-3 bg-white/60 print:bg-white print:p-1 rounded-lg border border-blue-100 print:border-gray-200">
+                  {summary.sandwiches && summary.sandwiches.map((item, index) => (
+                    <div key={index} className="flex justify-between items-center p-3 bg-white/60 print:bg-white print:p-1 rounded-lg border border-blue-100 print:border-gray-200">
                       <div className="flex items-center space-x-3 print:space-x-2">
                         <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-medium print:bg-gray-800 print:px-1">
                           {item.quantity}x
                         </span>
-                        <span className="font-medium text-gray-800 print:text-black print:text-sm">
-                          {item.sandwich_name}
-                        </span>
+                        <div className="flex flex-col">
+                          <span className="font-medium text-gray-800 print:text-black print:text-sm">
+                            {item.sandwich_name}
+                          </span>
+                          {item.addons && item.addons.length > 0 && (
+                            <span className="text-xs text-emerald-600 print:text-black print:text-xs mt-0.5">
+                              + {item.addons.map(a => a.name).join(', ')}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <span className="font-bold text-emerald-600 print:text-black text-lg print:text-sm">
                         ${item.total_price.toFixed(2)}
                       </span>
                     </div>
                   ))}
+                  {summary.cookies && (
+                    <div className="flex justify-between items-center p-3 bg-amber-50/60 print:bg-white print:p-1 rounded-lg border border-amber-200 print:border-gray-200">
+                      <div className="flex items-center space-x-3 print:space-x-2">
+                        <span className="bg-amber-500 text-white text-xs px-2 py-1 rounded-full font-medium print:bg-gray-800 print:px-1">
+                          {summary.cookies.quantity}x
+                        </span>
+                        <span className="font-medium text-gray-800 print:text-black print:text-sm">
+                          🍪 Cookies
+                        </span>
+                      </div>
+                      <span className="font-bold text-emerald-600 print:text-black text-lg print:text-sm">
+                        ${summary.cookies.total_price.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="border-t-2 border-blue-200 print:border-black pt-6 print:pt-3">
@@ -278,19 +319,19 @@ function PrintOrder({ onBack }) {
                     <div className="text-center print:text-left">
                       <p className="text-sm text-gray-600 print:text-black print:text-xs">Subtotal</p>
                       <p className="text-2xl font-bold text-gray-800 print:text-black print:text-sm">
-                        ${totalAmount.toFixed(2)}
+                        ${(totalAmount / (1 + TAX_RATE)).toFixed(2)}
                       </p>
                     </div>
                     <div className="text-center sm:text-right print:text-left">
                       <p className="text-sm text-gray-600 print:text-black print:text-xs">Tax ({(TAX_RATE * 100).toFixed(0)}%)</p>
                       <p className="text-xl font-bold text-gray-800 print:text-black print:text-sm">
-                        ${(totalAmount * TAX_RATE).toFixed(2)}
+                        ${(totalAmount - (totalAmount / (1 + TAX_RATE))).toFixed(2)}
                       </p>
                     </div>
                     <div className="text-center print:text-center col-span-3 print:col-span-1">
                       <p className="text-sm text-gray-600 print:text-black print:text-xs">Total</p>
                       <p className="text-4xl font-bold text-emerald-600 print:text-black print:text-base print:font-bold">
-                        ${(totalAmount * (1 + TAX_RATE)).toFixed(2)}
+                        ${totalAmount.toFixed(2)}
                       </p>
                     </div>
                   </div>

@@ -11,7 +11,8 @@ function ManageMenu({ onBack }) {
     name: '',
     type: 'Focaccia',
     ingredients: '',
-    price: ''
+    price: '',
+    addons: []
   })
 
   useEffect(() => {
@@ -59,8 +60,6 @@ function ManageMenu({ onBack }) {
   }
 
   const handleToggle = async (id, currentStatus, type) => {
-    // Prevent scroll to top
-    const scrollY = window.scrollY
 
     // Check limits before toggling
     const activeByType = sandwiches.filter(s => s.is_active && s.type === type).length
@@ -105,7 +104,8 @@ function ManageMenu({ onBack }) {
       name: '',
       type: 'Focaccia',
       ingredients: '',
-      price: ''
+      price: '',
+      addons: []
     })
     setShowForm(true)
     window.scrollTo({ top: window.scrollY, behavior: 'instant' })
@@ -117,10 +117,31 @@ function ManageMenu({ onBack }) {
       name: sandwich.name,
       type: sandwich.type,
       ingredients: sandwich.ingredients,
-      price: sandwich.price.toString()
+      price: sandwich.price.toString(),
+      addons: sandwich.addons || []
     })
     setShowForm(true)
     window.scrollTo({ top: window.scrollY, behavior: 'instant' })
+  }
+
+  const handleAddAddon = () => {
+    setFormData({
+      ...formData,
+      addons: [...formData.addons, { name: '', price: '' }]
+    })
+  }
+
+  const handleRemoveAddon = (index) => {
+    setFormData({
+      ...formData,
+      addons: formData.addons.filter((_, i) => i !== index)
+    })
+  }
+
+  const handleUpdateAddon = (index, field, value) => {
+    const updatedAddons = [...formData.addons]
+    updatedAddons[index] = { ...updatedAddons[index], [field]: value }
+    setFormData({ ...formData, addons: updatedAddons })
   }
 
   const handleClearAll = async () => {
@@ -159,13 +180,22 @@ function ManageMenu({ onBack }) {
       }
     }
 
+    // Validate and process addons
+    const processedAddons = formData.addons
+      .filter(addon => addon.name.trim() && addon.price)
+      .map(addon => ({
+        name: addon.name.trim(),
+        price: parseFloat(addon.price)
+      }))
+      .filter(addon => !isNaN(addon.price) && addon.price > 0)
+
     try {
       if (editingSandwich) {
-        await updateSandwich(editingSandwich.id, formData.name, formData.type, formData.ingredients, price)
+        await updateSandwich(editingSandwich.id, formData.name, formData.type, formData.ingredients, price, processedAddons)
         alert(`✅ Successfully updated "${formData.name}"!`)
       } else {
         // Add new sandwich and mark as active
-        await addSandwich(formData.name, formData.type, formData.ingredients, price, true)
+        await addSandwich(formData.name, formData.type, formData.ingredients, price, true, processedAddons)
         alert(`✅ Successfully added "${formData.name}" to the menu!`)
       }
 
@@ -182,7 +212,8 @@ function ManageMenu({ onBack }) {
       name: '',
       type: 'Focaccia',
       ingredients: '',
-      price: ''
+      price: '',
+      addons: []
     })
     setEditingSandwich(null)
     setShowForm(false)
@@ -440,7 +471,7 @@ function ManageMenu({ onBack }) {
 
                 <div className="md:w-1/2">
                   <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Price ($)
+                    Base Price ($)
                   </label>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
@@ -454,6 +485,58 @@ function ManageMenu({ onBack }) {
                       required
                     />
                   </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Optional Addons
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleAddAddon}
+                      className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center space-x-1"
+                    >
+                      <span>➕</span>
+                      <span>Add Addon</span>
+                    </button>
+                  </div>
+                  {formData.addons.length > 0 && (
+                    <div className="space-y-3">
+                      {formData.addons.map((addon, index) => (
+                        <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                          <input
+                            type="text"
+                            value={addon.name}
+                            onChange={(e) => handleUpdateAddon(index, 'name', e.target.value)}
+                            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                            placeholder="Addon name (e.g., Bacon)"
+                          />
+                          <div className="relative w-32">
+                            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">$</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={addon.price}
+                              onChange={(e) => handleUpdateAddon(index, 'price', e.target.value)}
+                              className="w-full pl-7 pr-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                              placeholder="2.00"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveAddon(index)}
+                            className="px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors duration-200"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {formData.addons.length === 0 && (
+                    <p className="text-sm text-gray-500 italic">No addons added. Click "Add Addon" to add optional extras like bacon or cheese.</p>
+                  )}
                 </div>
 
                 <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 pt-4">

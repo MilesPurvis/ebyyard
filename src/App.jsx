@@ -18,6 +18,7 @@ function App() {
     setDbReady(true)
   }, [])
 
+
   const handleNavigation = (view) => {
     if (view === 'ebyyard') {
       setCurrentSection('ebyyard')
@@ -67,7 +68,7 @@ function App() {
       case 'ebyyard-home':
         return <HomeScreen onNavigate={setCurrentView} onBack={handleBackToMain} />
       case 'order':
-        return <OrderFlow onBack={handleBackToSection} />
+        return <OrderFlow onBack={handleBackToSection} onNavigate={setCurrentView} />
       case 'manage-menu':
         return <ManageMenu onBack={handleBackToSection} />
       case 'print':

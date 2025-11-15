@@ -1,5 +1,25 @@
+import { useState, useEffect } from 'react'
+import { getAllTimeOrderCount } from '../db/database.js'
+
 // ANCHOR: home-screen-component
 function HomeScreen({ onNavigate, onBack }) {
+  const [orderCount, setOrderCount] = useState(0)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const loadOrderCount = async () => {
+      try {
+        const count = await getAllTimeOrderCount()
+        setOrderCount(count)
+      } catch (error) {
+        console.error('Error loading order count:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadOrderCount()
+  }, [])
+
   const buttons = [
     {
       id: 'order',
@@ -38,6 +58,11 @@ function HomeScreen({ onNavigate, onBack }) {
             >
               ← Back
             </button>
+            {!loading && (
+              <span className="bg-emerald-100 text-emerald-700 text-xs font-semibold px-2.5 py-1 rounded-full border border-emerald-200">
+                {orderCount} total orders
+              </span>
+            )}
           </div>
         )}
 

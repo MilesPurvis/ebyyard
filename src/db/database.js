@@ -57,10 +57,10 @@ export async function getSandwichById(id) {
   return data
 }
 
-export async function addSandwich(name, type, ingredients, price, isActive = false) {
+export async function addSandwich(name, type, ingredients, price, isActive = false, addons = []) {
   const { data, error } = await supabase
     .from('sandwiches')
-    .insert([{ name, type, ingredients, price, is_active: isActive }])
+    .insert([{ name, type, ingredients, price, is_active: isActive, addons: addons.length > 0 ? addons : null }])
     .select()
 
   if (error) {
@@ -76,10 +76,10 @@ export async function addSandwich(name, type, ingredients, price, isActive = fal
   return { success: true, data: data[0] }
 }
 
-export async function updateSandwich(id, name, type, ingredients, price) {
+export async function updateSandwich(id, name, type, ingredients, price, addons = []) {
   const { data, error } = await supabase
     .from('sandwiches')
-    .update({ name, type, ingredients, price })
+    .update({ name, type, ingredients, price, addons: addons.length > 0 ? addons : null })
     .eq('id', id)
     .select()
 
@@ -158,7 +158,7 @@ export async function deleteSandwich(id) {
 }
 
 // ANCHOR: order-operations
-export async function addOrder(customerName, sandwichId, notes = '') {
+export async function addOrder(customerName, sandwichId, notes = '', selectedAddons = [], cookieQuantity = 0) {
   const today = new Date().toISOString().split('T')[0]
 
   // First, get the full sandwich details to store in the order
@@ -166,6 +166,14 @@ export async function addOrder(customerName, sandwichId, notes = '') {
   if (!sandwich) {
     throw new Error('Sandwich not found')
   }
+
+  // Calculate total price including addons, cookies, and tax
+  const basePrice = sandwich.price || 0
+  const addonsPrice = selectedAddons.reduce((sum, addon) => sum + (addon.price || 0), 0)
+  const cookiesPrice = cookieQuantity * 4
+  const subtotal = basePrice + addonsPrice + cookiesPrice
+  const tax = subtotal * 0.13
+  const totalPrice = subtotal + tax
 
   // Store both the sandwich_id (for reference) and full details (for historical tracking)
   const { data, error } = await supabase
@@ -176,7 +184,9 @@ export async function addOrder(customerName, sandwichId, notes = '') {
       sandwich_name: sandwich.name,
       sandwich_type: sandwich.type,
       sandwich_ingredients: sandwich.ingredients,
-      sandwich_price: sandwich.price,
+      sandwich_price: totalPrice, // Store total price including addons, cookies, and tax
+      addons: selectedAddons.length > 0 ? selectedAddons : null, // Store selected addons
+      cookie_quantity: cookieQuantity, // Store cookie quantity
       notes,
       order_date: today
     }])
@@ -215,7 +225,9 @@ export async function getTodaysOrders() {
     sandwich_name: order.sandwich_name || 'Unknown',
     sandwich_type: order.sandwich_type || 'Unknown',
     sandwich_ingredients: order.sandwich_ingredients || '',
-    sandwich_price: order.sandwich_price || 0
+    sandwich_price: order.sandwich_price || 0,
+    addons: order.addons || [],
+    cookie_quantity: order.cookie_quantity || 0
   })) || []
 
   return transformedData
@@ -224,69 +236,57 @@ export async function getTodaysOrders() {
 export async function getTodaysOrderSummary() {
   const today = new Date().toISOString().split('T')[0]
 
-  // Try to use stored sandwich details first, fall back to join if columns don't exist
-  let data, error
-
-  // First try with stored columns
-  const result = await supabase
+  // Get all order data including addons
+  const { data, error } = await supabase
     .from('orders')
-    .select('sandwich_name, sandwich_price, sandwich_id')
+    .select('sandwich_name, sandwich_price, addons, cookie_quantity')
     .eq('order_date', today)
 
-  data = result.data
-  error = result.error
-
-  // If error and it's about missing columns, try fallback with join
-  if (error && (error.message?.includes('column') || error.message?.includes('does not exist'))) {
-    console.warn('Stored columns not found, falling back to join with sandwiches table')
-
-    const fallbackResult = await supabase
-      .from('orders')
-      .select(`
-        sandwiches!inner (
-          name,
-          price
-        )
-      `)
-      .eq('order_date', today)
-
-    if (fallbackResult.error) {
-      console.error('Error fetching order summary:', fallbackResult.error)
-      throw new Error(`Failed to fetch order summary: ${fallbackResult.error.message}`)
-    }
-
-    // Transform fallback data
-    data = fallbackResult.data?.map(order => ({
-      sandwich_name: order.sandwiches?.name || 'Unknown',
-      sandwich_price: order.sandwiches?.price || 0,
-      sandwich_id: null
-    })) || []
-  } else if (error) {
+  if (error) {
     console.error('Error fetching order summary:', error)
     const errorMessage = error.message || error.details || error.hint || 'Unknown database error'
     throw new Error(`Failed to fetch order summary: ${errorMessage}`)
   }
 
-  // Group by sandwich and calculate totals
-  const summary = {}
+  // Group by sandwich + addons combination
+  const sandwichSummary = {}
+  let totalCookies = 0
+
   data?.forEach(order => {
     const sandwichName = order.sandwich_name || 'Unknown'
+    const addons = order.addons || []
+    const addonsKey = addons.length > 0
+      ? addons.map(a => a.name).sort().join(', ')
+      : 'no-addons'
+
+    // Create a unique key for sandwich + addons combination
+    const key = `${sandwichName}${addonsKey !== 'no-addons' ? ` (${addonsKey})` : ''}`
     const price = parseFloat(order.sandwich_price || 0)
 
-    if (summary[sandwichName]) {
-      summary[sandwichName].quantity += 1
-      summary[sandwichName].total_price += price
+    if (sandwichSummary[key]) {
+      sandwichSummary[key].quantity += 1
+      sandwichSummary[key].total_price += price
     } else {
-      summary[sandwichName] = {
+      sandwichSummary[key] = {
         sandwich_name: sandwichName,
-        sandwich_price: price,
+        addons: addons,
         quantity: 1,
         total_price: price
       }
     }
+
+    // Count cookies
+    if (order.cookie_quantity) {
+      totalCookies += order.cookie_quantity
+    }
   })
 
-  return Object.values(summary).sort((a, b) => a.sandwich_name.localeCompare(b.sandwich_name))
+  const result = {
+    sandwiches: Object.values(sandwichSummary).sort((a, b) => a.sandwich_name.localeCompare(b.sandwich_name)),
+    cookies: totalCookies > 0 ? { quantity: totalCookies, total_price: totalCookies * 4 } : null
+  }
+
+  return result
 }
 
 export async function getTodaysTotalAmount() {
@@ -307,6 +307,35 @@ export async function getTodaysTotalAmount() {
   }, 0) || 0
 
   return total
+}
+
+export async function getTodaysOrderCount() {
+  const today = new Date().toISOString().split('T')[0]
+
+  const { count, error } = await supabase
+    .from('orders')
+    .select('*', { count: 'exact', head: true })
+    .eq('order_date', today)
+
+  if (error) {
+    console.error('Error fetching order count:', error)
+    throw new Error('Failed to fetch order count')
+  }
+
+  return count || 0
+}
+
+export async function getAllTimeOrderCount() {
+  const { count, error } = await supabase
+    .from('orders')
+    .select('*', { count: 'exact', head: true })
+
+  if (error) {
+    console.error('Error fetching all-time order count:', error)
+    throw new Error('Failed to fetch all-time order count')
+  }
+
+  return count || 0
 }
 
 // ANCHOR: order-crud-operations
