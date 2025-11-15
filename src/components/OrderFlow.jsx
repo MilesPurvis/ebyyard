@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getAllSandwiches, addOrder } from '../db/database.js'
+import { getActiveSandwiches, addOrder } from '../db/database.js'
 
 // ANCHOR: order-flow-component
 function OrderFlow({ onBack }) {
@@ -12,8 +12,8 @@ function OrderFlow({ onBack }) {
   useEffect(() => {
     const loadSandwiches = async () => {
       try {
-        const allSandwiches = await getAllSandwiches()
-        setSandwiches(allSandwiches)
+        const activeSandwiches = await getActiveSandwiches()
+        setSandwiches(activeSandwiches)
       } catch (error) {
         alert('Error loading sandwiches: ' + error.message)
       }
@@ -57,6 +57,13 @@ function OrderFlow({ onBack }) {
     acc[sandwich.type].push(sandwich)
     return acc
   }, {})
+
+  // Sort types so Hoagie appears before Focaccia
+  const sortedTypes = Object.keys(groupedSandwiches).sort((a, b) => {
+    if (a === 'Hoagie' && b !== 'Hoagie') return -1
+    if (b === 'Hoagie' && a !== 'Hoagie') return 1
+    return a.localeCompare(b)
+  })
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -114,7 +121,9 @@ function OrderFlow({ onBack }) {
           </div>
 
           <div className="space-y-6">
-            {Object.entries(groupedSandwiches).map(([type, typeSandwiches]) => (
+            {sortedTypes.map((type) => {
+              const typeSandwiches = groupedSandwiches[type]
+              return (
               <div key={type}>
                 <div className="flex items-center space-x-2 mb-4">
                   <h4 className="text-lg font-bold text-gray-800">{type}</h4>
@@ -140,7 +149,8 @@ function OrderFlow({ onBack }) {
                   ))}
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
 
           <button

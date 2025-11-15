@@ -26,6 +26,22 @@ export async function getAllSandwiches() {
   return data || []
 }
 
+export async function getActiveSandwiches() {
+  const { data, error } = await supabase
+    .from('sandwiches')
+    .select('*')
+    .eq('is_active', true)
+    .order('type')
+    .order('name')
+
+  if (error) {
+    console.error('Error fetching active sandwiches:', error)
+    throw new Error('Failed to fetch active sandwiches')
+  }
+
+  return data || []
+}
+
 export async function getSandwichById(id) {
   const { data, error } = await supabase
     .from('sandwiches')
@@ -41,15 +57,20 @@ export async function getSandwichById(id) {
   return data
 }
 
-export async function addSandwich(name, type, ingredients, price) {
+export async function addSandwich(name, type, ingredients, price, isActive = false) {
   const { data, error } = await supabase
     .from('sandwiches')
-    .insert([{ name, type, ingredients, price }])
+    .insert([{ name, type, ingredients, price, is_active: isActive }])
     .select()
 
   if (error) {
     console.error('Error adding sandwich:', error)
-    throw new Error('Failed to add sandwich')
+    const errorMessage = error.message || error.details || error.hint || 'Unknown database error'
+    throw new Error(`Failed to add sandwich: ${errorMessage}`)
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error('Sandwich was not saved - no data returned from database')
   }
 
   return { success: true, data: data[0] }
@@ -64,21 +85,73 @@ export async function updateSandwich(id, name, type, ingredients, price) {
 
   if (error) {
     console.error('Error updating sandwich:', error)
-    throw new Error('Failed to update sandwich')
+    const errorMessage = error.message || error.details || error.hint || 'Unknown database error'
+    throw new Error(`Failed to update sandwich: ${errorMessage}`)
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error('Sandwich was not updated - no data returned from database')
   }
 
   return { success: true, data: data[0] }
 }
 
-export async function deleteSandwich(id) {
+export async function toggleSandwichActive(id, isActive) {
+  const { data, error } = await supabase
+    .from('sandwiches')
+    .update({ is_active: isActive })
+    .eq('id', id)
+    .select()
+
+  if (error) {
+    console.error('Error toggling sandwich active status:', error)
+    const errorMessage = error.message || error.details || error.hint || 'Unknown database error'
+    throw new Error(`Failed to update sandwich: ${errorMessage}`)
+  }
+
+  return { success: true, data: data[0] }
+}
+
+export async function setAllSandwichesInactive() {
+  // Supabase requires a WHERE clause for UPDATE operations
+  // Use .gte('id', 0) to match all rows (since IDs are typically positive integers)
   const { error } = await supabase
+    .from('sandwiches')
+    .update({ is_active: false })
+    .gte('id', 0) // This matches all rows since IDs are positive integers
+
+  if (error) {
+    console.error('Error setting all sandwiches inactive:', error)
+    const errorMessage = error.message || error.details || error.hint || 'Unknown database error'
+    throw new Error(`Failed to clear weekly menu: ${errorMessage}`)
+  }
+
+  return { success: true }
+}
+
+export async function deleteSandwich(id) {
+  const { data, error } = await supabase
     .from('sandwiches')
     .delete()
     .eq('id', id)
+    .select()
 
   if (error) {
     console.error('Error deleting sandwich:', error)
-    throw new Error('Failed to delete sandwich')
+    const errorMessage = error.message || error.details || error.hint || 'Unknown database error'
+
+    // Check for common error types
+    if (errorMessage.includes('foreign key') || errorMessage.includes('violates foreign key')) {
+      throw new Error('Cannot delete sandwich: It is referenced by existing orders. Delete the orders first, or the sandwich details are preserved in order history.')
+    } else if (errorMessage.includes('permission') || errorMessage.includes('policy')) {
+      throw new Error('Permission denied: Check your Supabase Row Level Security (RLS) policies for the sandwiches table.')
+    } else {
+      throw new Error(`Failed to delete sandwich: ${errorMessage}`)
+    }
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error('Sandwich not found or already deleted')
   }
 
   return { success: true }
@@ -86,18 +159,33 @@ export async function deleteSandwich(id) {
 
 // ANCHOR: order-operations
 export async function addOrder(customerName, sandwichId, notes = '') {
+  const today = new Date().toISOString().split('T')[0]
+
+  // First, get the full sandwich details to store in the order
+  const sandwich = await getSandwichById(sandwichId)
+  if (!sandwich) {
+    throw new Error('Sandwich not found')
+  }
+
+  // Store both the sandwich_id (for reference) and full details (for historical tracking)
   const { data, error } = await supabase
     .from('orders')
     .insert([{
       customer_name: customerName,
       sandwich_id: sandwichId,
-      notes
+      sandwich_name: sandwich.name,
+      sandwich_type: sandwich.type,
+      sandwich_ingredients: sandwich.ingredients,
+      sandwich_price: sandwich.price,
+      notes,
+      order_date: today
     }])
     .select()
 
   if (error) {
     console.error('Error adding order:', error)
-    throw new Error('Failed to add order')
+    const errorMessage = error.message || error.details || error.hint || 'Unknown database error'
+    throw new Error(`Failed to add order: ${errorMessage}`)
   }
 
   return { success: true, data: data[0] }
@@ -108,17 +196,7 @@ export async function getTodaysOrders() {
 
   const { data, error } = await supabase
     .from('orders')
-    .select(`
-      id,
-      customer_name,
-      notes,
-      created_at,
-      sandwiches!inner (
-        name,
-        type,
-        price
-      )
-    `)
+    .select('*')
     .eq('order_date', today)
     .order('created_at')
 
@@ -127,15 +205,17 @@ export async function getTodaysOrders() {
     throw new Error('Failed to fetch orders')
   }
 
-  // Transform the data to match the old format
+  // Use stored sandwich details (for historical accuracy) or fall back to join if needed
   const transformedData = data?.map(order => ({
     id: order.id,
     customer_name: order.customer_name,
     notes: order.notes,
     created_at: order.created_at,
-    sandwich_name: order.sandwiches.name,
-    sandwich_type: order.sandwiches.type,
-    sandwich_price: order.sandwiches.price
+    sandwich_id: order.sandwich_id,
+    sandwich_name: order.sandwich_name || 'Unknown',
+    sandwich_type: order.sandwich_type || 'Unknown',
+    sandwich_ingredients: order.sandwich_ingredients || '',
+    sandwich_price: order.sandwich_price || 0
   })) || []
 
   return transformedData
@@ -144,26 +224,54 @@ export async function getTodaysOrders() {
 export async function getTodaysOrderSummary() {
   const today = new Date().toISOString().split('T')[0]
 
-  const { data, error } = await supabase
+  // Try to use stored sandwich details first, fall back to join if columns don't exist
+  let data, error
+
+  // First try with stored columns
+  const result = await supabase
     .from('orders')
-    .select(`
-      sandwiches!inner (
-        name,
-        price
-      )
-    `)
+    .select('sandwich_name, sandwich_price, sandwich_id')
     .eq('order_date', today)
 
-  if (error) {
+  data = result.data
+  error = result.error
+
+  // If error and it's about missing columns, try fallback with join
+  if (error && (error.message?.includes('column') || error.message?.includes('does not exist'))) {
+    console.warn('Stored columns not found, falling back to join with sandwiches table')
+
+    const fallbackResult = await supabase
+      .from('orders')
+      .select(`
+        sandwiches!inner (
+          name,
+          price
+        )
+      `)
+      .eq('order_date', today)
+
+    if (fallbackResult.error) {
+      console.error('Error fetching order summary:', fallbackResult.error)
+      throw new Error(`Failed to fetch order summary: ${fallbackResult.error.message}`)
+    }
+
+    // Transform fallback data
+    data = fallbackResult.data?.map(order => ({
+      sandwich_name: order.sandwiches?.name || 'Unknown',
+      sandwich_price: order.sandwiches?.price || 0,
+      sandwich_id: null
+    })) || []
+  } else if (error) {
     console.error('Error fetching order summary:', error)
-    throw new Error('Failed to fetch order summary')
+    const errorMessage = error.message || error.details || error.hint || 'Unknown database error'
+    throw new Error(`Failed to fetch order summary: ${errorMessage}`)
   }
 
   // Group by sandwich and calculate totals
   const summary = {}
   data?.forEach(order => {
-    const sandwichName = order.sandwiches.name
-    const price = parseFloat(order.sandwiches.price)
+    const sandwichName = order.sandwich_name || 'Unknown'
+    const price = parseFloat(order.sandwich_price || 0)
 
     if (summary[sandwichName]) {
       summary[sandwichName].quantity += 1
@@ -186,11 +294,7 @@ export async function getTodaysTotalAmount() {
 
   const { data, error } = await supabase
     .from('orders')
-    .select(`
-      sandwiches!inner (
-        price
-      )
-    `)
+    .select('sandwich_price')
     .eq('order_date', today)
 
   if (error) {
@@ -199,7 +303,7 @@ export async function getTodaysTotalAmount() {
   }
 
   const total = data?.reduce((sum, order) => {
-    return sum + parseFloat(order.sandwiches.price)
+    return sum + parseFloat(order.sandwich_price || 0)
   }, 0) || 0
 
   return total
@@ -209,18 +313,7 @@ export async function getTodaysTotalAmount() {
 export async function getOrderById(id) {
   const { data, error } = await supabase
     .from('orders')
-    .select(`
-      id,
-      customer_name,
-      sandwich_id,
-      notes,
-      created_at,
-      sandwiches!inner (
-        name,
-        type,
-        price
-      )
-    `)
+    .select('*')
     .eq('id', id)
     .single()
 
@@ -229,25 +322,38 @@ export async function getOrderById(id) {
     return null
   }
 
-  // Transform to match old format
+  // Use stored sandwich details for historical accuracy
   return {
     id: data.id,
     customer_name: data.customer_name,
     sandwich_id: data.sandwich_id,
     notes: data.notes,
     created_at: data.created_at,
-    sandwich_name: data.sandwiches.name,
-    sandwich_type: data.sandwiches.type,
-    sandwich_price: data.sandwiches.price
+    order_date: data.order_date,
+    sandwich_name: data.sandwich_name || 'Unknown',
+    sandwich_type: data.sandwich_type || 'Unknown',
+    sandwich_ingredients: data.sandwich_ingredients || '',
+    sandwich_price: data.sandwich_price || 0
   }
 }
 
 export async function updateOrder(id, customerName, sandwichId, notes = '') {
+  // Get the full sandwich details to store in the order
+  const sandwich = await getSandwichById(sandwichId)
+  if (!sandwich) {
+    throw new Error('Sandwich not found')
+  }
+
+  // Update with both sandwich_id and full details for historical tracking
   const { data, error } = await supabase
     .from('orders')
     .update({
       customer_name: customerName,
       sandwich_id: sandwichId,
+      sandwich_name: sandwich.name,
+      sandwich_type: sandwich.type,
+      sandwich_ingredients: sandwich.ingredients,
+      sandwich_price: sandwich.price,
       notes
     })
     .eq('id', id)
@@ -255,7 +361,8 @@ export async function updateOrder(id, customerName, sandwichId, notes = '') {
 
   if (error) {
     console.error('Error updating order:', error)
-    throw new Error('Failed to update order')
+    const errorMessage = error.message || error.details || error.hint || 'Unknown database error'
+    throw new Error(`Failed to update order: ${errorMessage}`)
   }
 
   return { success: true, data: data[0] }
@@ -275,6 +382,87 @@ export async function deleteOrder(id) {
   return { success: true }
 }
 
+// ANCHOR: historical-order-tracking
+export async function getOrdersByCustomer(customerName) {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*')
+    .ilike('customer_name', `%${customerName}%`)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('Error fetching customer orders:', error)
+    throw new Error('Failed to fetch customer orders')
+  }
+
+  return data?.map(order => ({
+    id: order.id,
+    customer_name: order.customer_name,
+    notes: order.notes,
+    created_at: order.created_at,
+    order_date: order.order_date,
+    sandwich_id: order.sandwich_id,
+    sandwich_name: order.sandwich_name || 'Unknown',
+    sandwich_type: order.sandwich_type || 'Unknown',
+    sandwich_ingredients: order.sandwich_ingredients || '',
+    sandwich_price: order.sandwich_price || 0
+  })) || []
+}
+
+export async function getOrdersByDateRange(startDate, endDate) {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*')
+    .gte('order_date', startDate)
+    .lte('order_date', endDate)
+    .order('order_date', { ascending: false })
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('Error fetching orders by date range:', error)
+    throw new Error('Failed to fetch orders by date range')
+  }
+
+  return data?.map(order => ({
+    id: order.id,
+    customer_name: order.customer_name,
+    notes: order.notes,
+    created_at: order.created_at,
+    order_date: order.order_date,
+    sandwich_id: order.sandwich_id,
+    sandwich_name: order.sandwich_name || 'Unknown',
+    sandwich_type: order.sandwich_type || 'Unknown',
+    sandwich_ingredients: order.sandwich_ingredients || '',
+    sandwich_price: order.sandwich_price || 0
+  })) || []
+}
+
+export async function getAllOrders(limit = 100) {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error) {
+    console.error('Error fetching all orders:', error)
+    throw new Error('Failed to fetch all orders')
+  }
+
+  return data?.map(order => ({
+    id: order.id,
+    customer_name: order.customer_name,
+    notes: order.notes,
+    created_at: order.created_at,
+    order_date: order.order_date,
+    sandwich_id: order.sandwich_id,
+    sandwich_name: order.sandwich_name || 'Unknown',
+    sandwich_type: order.sandwich_type || 'Unknown',
+    sandwich_ingredients: order.sandwich_ingredients || '',
+    sandwich_price: order.sandwich_price || 0
+  })) || []
+}
+
 // Legacy function for compatibility - no longer needed with Supabase
 export async function initDatabase() {
   // Supabase handles initialization automatically
@@ -284,7 +472,7 @@ export async function initDatabase() {
 // ANCHOR: coffee-order-operations
 export async function addCoffeeOrder(customerName, drinkName, milkType, notes = '') {
   const today = new Date().toISOString().split('T')[0]
-  
+
   const { data, error } = await supabase
     .from('coffee_orders')
     .insert([{
@@ -339,7 +527,7 @@ export async function getTodaysCoffeeOrderSummary() {
   const summary = {}
   data?.forEach(order => {
     const key = `${order.drink_name}-${order.milk_type}`
-    
+
     if (summary[key]) {
       summary[key].quantity += 1
     } else {

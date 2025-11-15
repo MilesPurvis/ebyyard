@@ -170,6 +170,11 @@ function PrintOrder({ onBack }) {
                             {order.sandwich_name}
                           </p>
                         </div>
+                        {order.sandwich_ingredients && (
+                          <div className="text-xs text-gray-600 print:text-black print:text-xs mb-1">
+                            {order.sandwich_ingredients}
+                          </div>
+                        )}
                         {order.notes && (
                           <div className="print:inline-block">
                             <span className="text-xs text-gray-500 print:text-black">
