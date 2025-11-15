@@ -188,7 +188,8 @@ export async function addOrder(customerName, sandwichId, notes = '', selectedAdd
       addons: selectedAddons.length > 0 ? selectedAddons : null, // Store selected addons
       cookie_quantity: cookieQuantity, // Store cookie quantity
       notes,
-      order_date: today
+      order_date: today,
+      payment_status: 'unpaid' // Default to unpaid
     }])
     .select()
 
@@ -227,7 +228,8 @@ export async function getTodaysOrders() {
     sandwich_ingredients: order.sandwich_ingredients || '',
     sandwich_price: order.sandwich_price || 0,
     addons: order.addons || [],
-    cookie_quantity: order.cookie_quantity || 0
+    cookie_quantity: order.cookie_quantity || 0,
+    payment_status: order.payment_status || 'unpaid'
   })) || []
 
   return transformedData
@@ -362,7 +364,8 @@ export async function getOrderById(id) {
     sandwich_name: data.sandwich_name || 'Unknown',
     sandwich_type: data.sandwich_type || 'Unknown',
     sandwich_ingredients: data.sandwich_ingredients || '',
-    sandwich_price: data.sandwich_price || 0
+    sandwich_price: data.sandwich_price || 0,
+    payment_status: data.payment_status || 'unpaid'
   }
 }
 
@@ -409,6 +412,23 @@ export async function deleteOrder(id) {
   }
 
   return { success: true }
+}
+
+// ANCHOR: payment-operations
+export async function updateOrderPaymentStatus(orderId, paymentStatus) {
+  const { data, error } = await supabase
+    .from('orders')
+    .update({ payment_status: paymentStatus })
+    .eq('id', orderId)
+    .select()
+
+  if (error) {
+    console.error('Error updating payment status:', error)
+    const errorMessage = error.message || error.details || error.hint || 'Unknown database error'
+    throw new Error(`Failed to update payment status: ${errorMessage}`)
+  }
+
+  return { success: true, data: data[0] }
 }
 
 // ANCHOR: historical-order-tracking

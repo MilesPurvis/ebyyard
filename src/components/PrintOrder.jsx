@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getTodaysOrders, getTodaysOrderSummary, getTodaysTotalAmount, getAllSandwiches, updateOrder, deleteOrder } from '../db/database.js'
+import { getTodaysOrders, getTodaysOrderSummary, getTodaysTotalAmount, getAllSandwiches, updateOrder, deleteOrder, updateOrderPaymentStatus } from '../db/database.js'
 
 // ANCHOR: print-order-component
 function PrintOrder({ onBack }) {
@@ -63,6 +63,15 @@ function PrintOrder({ onBack }) {
       } catch (error) {
         alert('Error deleting order: ' + error.message)
       }
+    }
+  }
+
+  const handlePaymentStatusChange = async (orderId, newStatus) => {
+    try {
+      await updateOrderPaymentStatus(orderId, newStatus)
+      loadOrderData() // Reload to show updated payment status
+    } catch (error) {
+      alert('Error updating payment status: ' + error.message)
     }
   }
 
@@ -192,6 +201,20 @@ function PrintOrder({ onBack }) {
                             </span>
                           </div>
                         )}
+                        {/* Payment Status */}
+                        <div className="mt-2 print:hidden">
+                          {order.payment_status === 'paid' ? (
+                            <span className="inline-flex items-center space-x-1 bg-emerald-100 text-emerald-700 text-xs font-semibold px-2 py-1 rounded-full border border-emerald-200">
+                              <span>✓</span>
+                              <span>Paid</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center space-x-1 bg-amber-100 text-amber-700 text-xs font-semibold px-2 py-1 rounded-full border border-amber-200">
+                              <span>⏳</span>
+                              <span>Unpaid</span>
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="flex flex-col items-end space-y-2 print:flex-row print:items-center print:space-y-0 print:space-x-4">
                         <div className="text-right print:text-sm">
@@ -229,21 +252,41 @@ function PrintOrder({ onBack }) {
                             )
                           })()}
                         </div>
-                        <div className="flex space-x-2 print:hidden">
-                          <button
-                            onClick={() => handleEdit(order)}
-                            className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200 shadow-md hover:shadow-lg flex items-center space-x-1"
-                          >
-                            <span>✏️</span>
-                            <span>Edit</span>
-                          </button>
-                          <button
-                            onClick={() => handleDelete(order.id)}
-                            className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200 shadow-md hover:shadow-lg flex items-center space-x-1"
-                          >
-                            <span>🗑️</span>
-                            <span>Delete</span>
-                          </button>
+                        <div className="flex flex-col items-end space-y-2 print:hidden">
+                          {/* Payment Status Toggle */}
+                          {order.payment_status === 'paid' ? (
+                            <button
+                              onClick={() => handlePaymentStatusChange(order.id, 'unpaid')}
+                              className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200 shadow-md hover:shadow-lg flex items-center space-x-1"
+                            >
+                              <span>↩️</span>
+                              <span>Mark as Unpaid</span>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handlePaymentStatusChange(order.id, 'paid')}
+                              className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200 shadow-md hover:shadow-lg flex items-center space-x-1"
+                            >
+                              <span>✓</span>
+                              <span>Mark as Paid</span>
+                            </button>
+                          )}
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => handleEdit(order)}
+                              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200 shadow-md hover:shadow-lg flex items-center space-x-1"
+                            >
+                              <span>✏️</span>
+                              <span>Edit</span>
+                            </button>
+                            <button
+                              onClick={() => handleDelete(order.id)}
+                              className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200 shadow-md hover:shadow-lg flex items-center space-x-1"
+                            >
+                              <span>🗑️</span>
+                              <span>Delete</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>

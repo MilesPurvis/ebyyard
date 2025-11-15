@@ -73,15 +73,6 @@ function OrderFlow({ onBack, onNavigate }) {
     }
   }
 
-  const resetOrder = () => {
-    setStep(1)
-    setCustomerName('')
-    setSelectedSandwich(null)
-    setSelectedAddons([])
-    setCookieQuantity(0)
-    setNotes('')
-  }
-
   const groupedSandwiches = sandwiches.reduce((acc, sandwich) => {
     if (!acc[sandwich.type]) {
       acc[sandwich.type] = []
@@ -318,7 +309,7 @@ function OrderFlow({ onBack, onNavigate }) {
 
           <form onSubmit={handleOrderSubmit}>
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center space-x-2">
+              <label className="text-sm font-medium text-gray-700 mb-3 flex items-center space-x-2">
                 <span>💬</span>
                 <span>Special Notes (allergies, preferences, etc.)</span>
               </label>
