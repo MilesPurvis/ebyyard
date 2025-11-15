@@ -10,20 +10,12 @@ function HomeScreen({ onNavigate, onBack }) {
       hoverGradient: 'hover:from-blue-600 hover:to-blue-700',
     },
     {
-      id: 'weekly-menu',
-      title: 'Manage Weekly Menu',
+      id: 'manage-menu',
+      title: 'Manage Menu',
       description: 'Select sandwiches for this week',
       icon: '📅',
       gradient: 'from-emerald-500 to-emerald-600',
       hoverGradient: 'hover:from-emerald-600 hover:to-emerald-700',
-    },
-    {
-      id: 'edit',
-      title: 'Edit Sandwich Library',
-      description: 'Add or edit sandwiches',
-      icon: '✏️',
-      gradient: 'from-amber-500 to-orange-500',
-      hoverGradient: 'hover:from-amber-600 hover:to-orange-600',
     },
     {
       id: 'print',

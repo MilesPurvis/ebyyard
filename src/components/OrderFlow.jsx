@@ -128,7 +128,7 @@ function OrderFlow({ onBack }) {
                 <div className="flex items-center space-x-2 mb-4">
                   <h4 className="text-lg font-bold text-gray-800">{type}</h4>
                 </div>
-                <div className="grid gap-3">
+                <div className="space-y-3">
                   {typeSandwiches.map((sandwich) => (
                     <button
                       key={sandwich.id}

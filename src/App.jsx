@@ -3,8 +3,7 @@ import MainHome from './components/MainHome.jsx'
 import HomeScreen from './components/HomeScreen.jsx'
 import LuceroHome from './components/LuceroHome.jsx'
 import OrderFlow from './components/OrderFlow.jsx'
-import SandwichEditor from './components/SandwichEditor.jsx'
-import WeeklyMenuManager from './components/WeeklyMenuManager.jsx'
+import ManageMenu from './components/ManageMenu.jsx'
 import PrintOrder from './components/PrintOrder.jsx'
 import CoffeeOrderFlow from './components/CoffeeOrderFlow.jsx'
 import CoffeePrintOrder from './components/CoffeePrintOrder.jsx'
@@ -69,10 +68,8 @@ function App() {
         return <HomeScreen onNavigate={setCurrentView} onBack={handleBackToMain} />
       case 'order':
         return <OrderFlow onBack={handleBackToSection} />
-      case 'weekly-menu':
-        return <WeeklyMenuManager onBack={handleBackToSection} />
-      case 'edit':
-        return <SandwichEditor onBack={handleBackToSection} />
+      case 'manage-menu':
+        return <ManageMenu onBack={handleBackToSection} />
       case 'print':
         return <PrintOrder onBack={handleBackToSection} />
 
