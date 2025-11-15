@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { getAllSandwiches, toggleSandwichActive, setAllSandwichesInactive, addSandwich, updateSandwich } from '../db/database.js'
+import { getAllSandwiches, updateSandwich, setAllSandwichesInactive, toggleSandwichActive, addSandwich } from '../db/database.js'
+import { processMenuUpload } from '../utils/menuUploadHandler.js'
 
 // ANCHOR: manage-menu-component
 function ManageMenu({ onBack }) {
@@ -15,6 +16,8 @@ function ManageMenu({ onBack }) {
     price: '',
     addons: []
   })
+  const [processingMenu, setProcessingMenu] = useState(false)
+  const [menuProcessingStatus, setMenuProcessingStatus] = useState('')
 
   useEffect(() => {
     loadSandwiches()
@@ -199,7 +202,6 @@ function ManageMenu({ onBack }) {
   }
 
   const handleClearAll = async () => {
-    const scrollY = window.scrollY
     if (window.confirm('Clear all sandwiches from this week\'s menu? This will make all sandwiches inactive.')) {
       try {
         await setAllSandwichesInactive()
@@ -288,6 +290,29 @@ function ManageMenu({ onBack }) {
     return a.localeCompare(b)
   })
 
+  const handleMenuUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    setProcessingMenu(true)
+
+    try {
+      const result = await processMenuUpload(file, setMenuProcessingStatus)
+
+      // Reload sandwiches
+      await loadSandwiches()
+
+      alert(`✅ Menu processed successfully!\n\n${result.processed} sandwiches processed:\n- ${result.activated} activated\n- ${result.created} created`)
+    } catch (error) {
+      console.error('Menu processing error:', error)
+      alert('Error processing menu: ' + error.message)
+    } finally {
+      setProcessingMenu(false)
+      // Reset file input
+      e.target.value = ''
+    }
+  }
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-6">
@@ -312,6 +337,17 @@ function ManageMenu({ onBack }) {
           </div>
 
           <div className="flex items-center gap-2">
+            <label className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white px-4 py-2 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center space-x-1.5 text-xs font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+              <span>📷</span>
+              <span>Upload Menu</span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleMenuUpload}
+                disabled={processingMenu}
+                className="hidden"
+              />
+            </label>
             <button
               onClick={handleAddNew}
               className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white px-4 py-2 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center space-x-1.5 text-xs font-medium"
@@ -327,6 +363,14 @@ function ManageMenu({ onBack }) {
               <span>Clear All</span>
             </button>
           </div>
+          {processingMenu && (
+            <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="flex items-center space-x-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
+                <span className="text-sm text-blue-700">{menuProcessingStatus}</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

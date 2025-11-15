@@ -57,6 +57,21 @@ export async function getSandwichById(id) {
   return data
 }
 
+export async function findSandwichByName(name) {
+  const { data, error } = await supabase
+    .from('sandwiches')
+    .select('*')
+    .ilike('name', `%${name.trim()}%`)
+    .limit(1)
+
+  if (error) {
+    console.error('Error finding sandwich:', error)
+    return null
+  }
+
+  return data && data.length > 0 ? data[0] : null
+}
+
 export async function addSandwich(name, type, ingredients, price, isActive = false, addons = []) {
   const { data, error } = await supabase
     .from('sandwiches')
