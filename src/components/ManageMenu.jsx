@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { getAllSandwiches, toggleSandwichActive, setAllSandwichesInactive, addSandwich, updateSandwich } from '../db/database.js'
 
 // ANCHOR: manage-menu-component
 function ManageMenu({ onBack }) {
   const [sandwiches, setSandwiches] = useState([])
   const [loading, setLoading] = useState(false)
+  const mondayCheckDone = useRef(false)
   const [showForm, setShowForm] = useState(false)
   const [editingSandwich, setEditingSandwich] = useState(null)
   const [formData, setFormData] = useState({
@@ -18,6 +19,59 @@ function ManageMenu({ onBack }) {
   useEffect(() => {
     loadSandwiches()
   }, [])
+
+  // Auto-clear menu on Mondays
+  useEffect(() => {
+    const checkAndClearMondayMenu = async () => {
+      // Skip if we've already checked this session
+      if (mondayCheckDone.current) return
+
+      const today = new Date()
+      const dayOfWeek = today.getDay() // 0 = Sunday, 1 = Monday, etc.
+      const todayDateString = today.toDateString()
+
+      // Check if it's Monday (day 1)
+      if (dayOfWeek === 1) {
+        // Check if we've already cleared today
+        const lastClearedDate = localStorage.getItem('menuLastCleared')
+
+        if (lastClearedDate !== todayDateString) {
+          // Check if there are any active sandwiches
+          const hasActiveSandwiches = sandwiches.some(s => s.is_active)
+
+          if (hasActiveSandwiches) {
+            try {
+              mondayCheckDone.current = true // Mark as checked to prevent re-runs
+              await setAllSandwichesInactive()
+              localStorage.setItem('menuLastCleared', todayDateString)
+              // Reload sandwiches to reflect the change
+              await loadSandwiches()
+              // Show a subtle notification (optional - you can remove if too intrusive)
+              console.log('✅ Weekly menu automatically cleared (Monday reset)')
+            } catch (error) {
+              console.error('Error auto-clearing menu:', error)
+              mondayCheckDone.current = false // Reset on error so it can retry
+            }
+          } else {
+            // No active sandwiches, mark as checked anyway
+            mondayCheckDone.current = true
+          }
+        } else {
+          // Already cleared today, mark as checked
+          mondayCheckDone.current = true
+        }
+      } else {
+        // Not Monday, mark as checked
+        mondayCheckDone.current = true
+      }
+    }
+
+    // Only run if we have sandwiches loaded and haven't checked yet
+    if (sandwiches.length > 0 && !loading && !mondayCheckDone.current) {
+      checkAndClearMondayMenu()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sandwiches.length, loading]) // Run when sandwiches are loaded
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -167,19 +221,6 @@ function ManageMenu({ onBack }) {
       return
     }
 
-    // Check limits when adding new sandwich (if marking as active)
-    if (!editingSandwich) {
-      const activeByType = sandwiches.filter(s => s.is_active && s.type === formData.type).length
-      if (formData.type === 'Hoagie' && activeByType >= 4) {
-        alert('Maximum 4 Hoagies allowed on the menu. Please deactivate one first.')
-        return
-      }
-      if (formData.type === 'Focaccia' && activeByType >= 4) {
-        alert('Maximum 4 Focaccia allowed on the menu. Please deactivate one first.')
-        return
-      }
-    }
-
     // Validate and process addons
     const processedAddons = formData.addons
       .filter(addon => addon.name.trim() && addon.price)
@@ -194,9 +235,19 @@ function ManageMenu({ onBack }) {
         await updateSandwich(editingSandwich.id, formData.name, formData.type, formData.ingredients, price, processedAddons)
         alert(`✅ Successfully updated "${formData.name}"!`)
       } else {
-        // Add new sandwich and mark as active
-        await addSandwich(formData.name, formData.type, formData.ingredients, price, true, processedAddons)
-        alert(`✅ Successfully added "${formData.name}" to the menu!`)
+        // Check if menu is full for this type - if so, add as inactive
+        const activeByType = sandwiches.filter(s => s.is_active && s.type === formData.type).length
+        const isMenuFull = (formData.type === 'Hoagie' && activeByType >= 4) ||
+                          (formData.type === 'Focaccia' && activeByType >= 4)
+        const shouldActivate = !isMenuFull
+
+        await addSandwich(formData.name, formData.type, formData.ingredients, price, shouldActivate, processedAddons)
+
+        if (isMenuFull) {
+          alert(`✅ Successfully added "${formData.name}"! (Added as inactive - menu is full. Activate it manually when ready.)`)
+        } else {
+          alert(`✅ Successfully added "${formData.name}" to the menu!`)
+        }
       }
 
       await loadSandwiches()
@@ -408,46 +459,47 @@ function ManageMenu({ onBack }) {
           style={{ scrollBehavior: 'auto' }}
         >
           <div
-            className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto my-8"
+            className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[95vh] overflow-y-auto my-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-6 sm:p-8">
-              <div className="text-center mb-6">
-                <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl mb-4">
-                  <span className="text-white text-xl">{editingSandwich ? '✏️' : '➕'}</span>
-                </div>
-                <h3 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2">
-                  {editingSandwich ? 'Edit Sandwich' : 'Add New Sandwich'}
+            <div className="p-4 sm:p-5">
+              <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-200">
+                <h3 className="text-lg sm:text-xl font-bold text-gray-800">
+                  {editingSandwich ? '✏️ Edit Sandwich' : '➕ Add New Sandwich'}
                 </h3>
-                <p className="text-gray-600 text-sm sm:text-base">
-                  {editingSandwich ? 'Update the sandwich details below' : 'Add this sandwich to your menu. It will be automatically marked as active.'}
-                </p>
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+                >
+                  ✕
+                </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       Sandwich Name
                     </label>
                     <input
                       type="text"
                       value={formData.name}
                       onChange={(e) => setFormData({...formData, name: e.target.value})}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 transition-all duration-200"
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 transition-all duration-200"
                       placeholder="e.g., Margherita Focaccia"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       Type
                     </label>
                     <select
                       value={formData.type}
                       onChange={(e) => setFormData({...formData, type: e.target.value})}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 transition-all duration-200"
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 transition-all duration-200"
                     >
                       <option value="Focaccia">Focaccia</option>
                       <option value="Hoagie">Hoagie</option>
@@ -456,31 +508,31 @@ function ManageMenu({ onBack }) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     Ingredients
                   </label>
                   <textarea
                     value={formData.ingredients}
                     onChange={(e) => setFormData({...formData, ingredients: e.target.value})}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 transition-all duration-200"
-                    rows="4"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 transition-all duration-200 resize-none"
+                    rows="3"
                     placeholder="List all ingredients separated by commas..."
                     required
                   />
                 </div>
 
                 <div className="md:w-1/2">
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     Base Price ($)
                   </label>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
+                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">$</span>
                     <input
                       type="number"
                       step="0.01"
                       value={formData.price}
                       onChange={(e) => setFormData({...formData, price: e.target.value})}
-                      className="w-full pl-8 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 transition-all duration-200"
+                      className="w-full pl-7 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 transition-all duration-200"
                       placeholder="12.99"
                       required
                     />
@@ -488,45 +540,45 @@ function ManageMenu({ onBack }) {
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between mb-2">
                     <label className="block text-sm font-medium text-gray-700">
                       Optional Addons
                     </label>
                     <button
                       type="button"
                       onClick={handleAddAddon}
-                      className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center space-x-1"
+                      className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center space-x-1"
                     >
                       <span>➕</span>
                       <span>Add Addon</span>
                     </button>
                   </div>
                   {formData.addons.length > 0 && (
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {formData.addons.map((addon, index) => (
-                        <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
                           <input
                             type="text"
                             value={addon.name}
                             onChange={(e) => handleUpdateAddon(index, 'name', e.target.value)}
-                            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                            className="flex-1 px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                             placeholder="Addon name (e.g., Bacon)"
                           />
-                          <div className="relative w-32">
-                            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">$</span>
+                          <div className="relative w-28">
+                            <span className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-500 text-xs">$</span>
                             <input
                               type="number"
                               step="0.01"
                               value={addon.price}
                               onChange={(e) => handleUpdateAddon(index, 'price', e.target.value)}
-                              className="w-full pl-7 pr-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                              className="w-full pl-6 pr-2.5 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                               placeholder="2.00"
                             />
                           </div>
                           <button
                             type="button"
                             onClick={() => handleRemoveAddon(index)}
-                            className="px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors duration-200"
+                            className="px-2.5 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors duration-200 text-sm"
                           >
                             ✕
                           </button>
@@ -535,14 +587,14 @@ function ManageMenu({ onBack }) {
                     </div>
                   )}
                   {formData.addons.length === 0 && (
-                    <p className="text-sm text-gray-500 italic">No addons added. Click "Add Addon" to add optional extras like bacon or cheese.</p>
+                    <p className="text-xs text-gray-400 italic">No addons added. Click "Add Addon" to add optional extras.</p>
                   )}
                 </div>
 
-                <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 pt-4">
+                <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-gray-200">
                   <button
                     type="submit"
-                    className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center space-x-2"
+                    className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center space-x-2 text-sm"
                   >
                     <span>{editingSandwich ? '✏️' : '➕'}</span>
                     <span>{editingSandwich ? 'Update' : 'Add'} Sandwich</span>
@@ -550,7 +602,7 @@ function ManageMenu({ onBack }) {
                   <button
                     type="button"
                     onClick={resetForm}
-                    className="sm:w-auto bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-xl transition-all duration-200 border border-gray-200 flex items-center justify-center space-x-2"
+                    className="sm:w-auto bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-all duration-200 border border-gray-200 flex items-center justify-center space-x-2 text-sm"
                   >
                     <span>✕</span>
                     <span>Cancel</span>
