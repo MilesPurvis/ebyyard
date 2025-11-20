@@ -391,6 +391,26 @@ export async function updateOrder(id, customerName, sandwichId, notes = '') {
     throw new Error('Sandwich not found')
   }
 
+  // Get the existing order to preserve addons and cookie_quantity
+  const { data: existingOrder, error: fetchError } = await supabase
+    .from('orders')
+    .select('addons, cookie_quantity')
+    .eq('id', id)
+    .single()
+
+  if (fetchError) {
+    console.error('Error fetching existing order:', fetchError)
+    throw new Error(`Failed to fetch existing order: ${fetchError.message}`)
+  }
+
+  // Calculate total price including addons, cookies, and tax (same logic as addOrder)
+  const basePrice = sandwich.price || 0
+  const addonsPrice = (existingOrder.addons || []).reduce((sum, addon) => sum + (addon.price || 0), 0)
+  const cookiesPrice = (existingOrder.cookie_quantity || 0) * 4
+  const subtotal = basePrice + addonsPrice + cookiesPrice
+  const tax = subtotal * 0.13
+  const totalPrice = subtotal + tax
+
   // Update with both sandwich_id and full details for historical tracking
   const { data, error } = await supabase
     .from('orders')
@@ -400,7 +420,7 @@ export async function updateOrder(id, customerName, sandwichId, notes = '') {
       sandwich_name: sandwich.name,
       sandwich_type: sandwich.type,
       sandwich_ingredients: sandwich.ingredients,
-      sandwich_price: sandwich.price,
+      sandwich_price: totalPrice, // Store total price including addons, cookies, and tax
       notes
     })
     .eq('id', id)
