@@ -19,11 +19,6 @@ function PrintOrder({ onBack }) {
   const TAX_RATE = 0.13
   const isCateringMode = useFeatureGate('catering-sandwich-feature')
 
-  // Debug: Log gate status
-  useEffect(() => {
-    console.log('🧪 TEST (PrintOrder): catering-sandwich-feature gate =', isCateringMode)
-  }, [isCateringMode])
-
   useEffect(() => {
     loadOrderData()
     loadSandwiches()

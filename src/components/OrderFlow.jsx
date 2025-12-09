@@ -13,13 +13,6 @@ function OrderFlow({ onBack, onNavigate }) {
   const [sandwiches, setSandwiches] = useState([])
   const isCateringMode = useFeatureGate('catering-sandwich-feature')
 
-  // Debug: Log gate status
-  useEffect(() => {
-    console.log('🧪 TEST: catering-sandwich-feature gate =', isCateringMode)
-    console.log('🧪 TEST: Prices should be', isCateringMode ? 'HIDDEN' : 'VISIBLE')
-    console.log('🧪 TEST: Cookies should be', isCateringMode ? 'HIDDEN' : 'VISIBLE')
-  }, [isCateringMode])
-
   useEffect(() => {
     const loadSandwiches = async () => {
       try {
@@ -108,20 +101,6 @@ function OrderFlow({ onBack, onNavigate }) {
 
   return (
     <div className="max-w-2xl mx-auto">
-      {/* Debug indicator - remove after testing */}
-      {import.meta.env.DEV && (
-        <div className={`mb-4 p-3 rounded-lg border-2 ${isCateringMode ? 'bg-red-50 border-red-300' : 'bg-green-50 border-green-300'}`}>
-          <p className="text-sm font-semibold">
-            🧪 DEBUG: Feature Gate Status
-          </p>
-          <p className="text-xs">
-            Gate: <code className="font-mono">catering-sandwich-feature</code> = <strong>{isCateringMode ? 'TRUE (Catering Mode)' : 'FALSE (Normal Mode)'}</strong>
-          </p>
-          <p className="text-xs mt-1">
-            {isCateringMode ? '❌ Prices & Cookies HIDDEN' : '✅ Prices & Cookies VISIBLE'}
-          </p>
-        </div>
-      )}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 space-y-4 sm:space-y-0">
         <div className="flex items-center space-x-3">
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">Place Order</h2>

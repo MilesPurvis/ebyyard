@@ -7,6 +7,7 @@ import {
 
 /**
  * Hook to check if a feature gate is enabled
+ * Simplified wrapper around Statsig's useFeatureGate
  * @param {string} gateName - The name of the feature gate
  * @returns {boolean} - Whether the gate is enabled
  *
