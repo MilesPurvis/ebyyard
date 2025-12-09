@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getActiveSandwiches, addOrder } from '../db/database.js'
+import { useFeatureGate } from '../hooks/useFeatureFlag'
 
 // ANCHOR: order-flow-component
 function OrderFlow({ onBack, onNavigate }) {
@@ -10,6 +11,14 @@ function OrderFlow({ onBack, onNavigate }) {
   const [cookieQuantity, setCookieQuantity] = useState(0)
   const [notes, setNotes] = useState('')
   const [sandwiches, setSandwiches] = useState([])
+  const isCateringMode = useFeatureGate('catering-sandwich-feature')
+
+  // Debug: Log gate status
+  useEffect(() => {
+    console.log('🧪 TEST: catering-sandwich-feature gate =', isCateringMode)
+    console.log('🧪 TEST: Prices should be', isCateringMode ? 'HIDDEN' : 'VISIBLE')
+    console.log('🧪 TEST: Cookies should be', isCateringMode ? 'HIDDEN' : 'VISIBLE')
+  }, [isCateringMode])
 
   useEffect(() => {
     const loadSandwiches = async () => {
@@ -22,6 +31,13 @@ function OrderFlow({ onBack, onNavigate }) {
     }
     loadSandwiches()
   }, [])
+
+  // Reset cookie quantity when entering catering mode
+  useEffect(() => {
+    if (isCateringMode) {
+      setCookieQuantity(0)
+    }
+  }, [isCateringMode])
 
   const handleNameSubmit = (e) => {
     e.preventDefault()
@@ -51,7 +67,7 @@ function OrderFlow({ onBack, onNavigate }) {
     if (!selectedSandwich) return 0
     const basePrice = selectedSandwich.price || 0
     const addonsPrice = selectedAddons.reduce((sum, addon) => sum + (addon.price || 0), 0)
-    const cookiesPrice = cookieQuantity * 4
+    const cookiesPrice = isCateringMode ? 0 : cookieQuantity * 4
     return basePrice + addonsPrice + cookiesPrice
   }
 
@@ -66,7 +82,9 @@ function OrderFlow({ onBack, onNavigate }) {
   const handleOrderSubmit = async (e) => {
     e.preventDefault()
     try {
-      await addOrder(customerName, selectedSandwich.id, notes, selectedAddons, cookieQuantity)
+      // In catering mode, always set cookie quantity to 0
+      const finalCookieQuantity = isCateringMode ? 0 : cookieQuantity
+      await addOrder(customerName, selectedSandwich.id, notes, selectedAddons, finalCookieQuantity)
       setStep(4)
     } catch (error) {
       alert('Error placing order: ' + error.message)
@@ -90,6 +108,20 @@ function OrderFlow({ onBack, onNavigate }) {
 
   return (
     <div className="max-w-2xl mx-auto">
+      {/* Debug indicator - remove after testing */}
+      {import.meta.env.DEV && (
+        <div className={`mb-4 p-3 rounded-lg border-2 ${isCateringMode ? 'bg-red-50 border-red-300' : 'bg-green-50 border-green-300'}`}>
+          <p className="text-sm font-semibold">
+            🧪 DEBUG: Feature Gate Status
+          </p>
+          <p className="text-xs">
+            Gate: <code className="font-mono">catering-sandwich-feature</code> = <strong>{isCateringMode ? 'TRUE (Catering Mode)' : 'FALSE (Normal Mode)'}</strong>
+          </p>
+          <p className="text-xs mt-1">
+            {isCateringMode ? '❌ Prices & Cookies HIDDEN' : '✅ Prices & Cookies VISIBLE'}
+          </p>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 space-y-4 sm:space-y-0">
         <div className="flex items-center space-x-3">
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">Place Order</h2>
@@ -164,7 +196,9 @@ function OrderFlow({ onBack, onNavigate }) {
                           <p className="text-gray-600 text-sm mt-1 line-clamp-2">{sandwich.ingredients}</p>
                         </div>
                         <div className="flex flex-col items-end">
-                          <span className="text-emerald-600 font-bold text-lg">${sandwich.price.toFixed(2)}</span>
+                          {!isCateringMode && (
+                            <span className="text-emerald-600 font-bold text-lg">${sandwich.price.toFixed(2)}</span>
+                          )}
                           <span className="text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-sm">Select →</span>
                         </div>
                       </div>
@@ -201,9 +235,11 @@ function OrderFlow({ onBack, onNavigate }) {
             <div className="mb-4">
               <h4 className="font-bold text-lg text-gray-800 mb-1">{selectedSandwich.name}</h4>
               <p className="text-sm text-gray-600">{selectedSandwich.ingredients}</p>
-              <div className="mt-2 flex items-center justify-between">
-                <span className="text-emerald-600 font-semibold">Base: ${selectedSandwich.price.toFixed(2)}</span>
-              </div>
+              {!isCateringMode && (
+                <div className="mt-2 flex items-center justify-between">
+                  <span className="text-emerald-600 font-semibold">Base: ${selectedSandwich.price.toFixed(2)}</span>
+                </div>
+              )}
             </div>
 
             {/* Addons - Integrated with Sandwich */}
@@ -235,7 +271,9 @@ function OrderFlow({ onBack, onNavigate }) {
                             </div>
                             <span className="font-medium text-sm text-gray-800">{addon.name}</span>
                           </div>
-                          <span className="text-emerald-600 font-semibold text-sm">+${addon.price.toFixed(2)}</span>
+                          {!isCateringMode && (
+                            <span className="text-emerald-600 font-semibold text-sm">+${addon.price.toFixed(2)}</span>
+                          )}
                         </div>
                       </button>
                     )
@@ -256,56 +294,60 @@ function OrderFlow({ onBack, onNavigate }) {
                 <span>Customer:</span>
                 <span className="font-medium">{customerName}</span>
               </div>
-              <div className="pt-2 border-t border-emerald-200 space-y-1.5">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Subtotal:</span>
-                  <span className="font-medium">${calculateSubtotal().toFixed(2)}</span>
+              {!isCateringMode && (
+                <div className="pt-2 border-t border-emerald-200 space-y-1.5">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Subtotal:</span>
+                    <span className="font-medium">${calculateSubtotal().toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Tax (13%):</span>
+                    <span className="font-medium">${calculateTax().toFixed(2)}</span>
+                  </div>
+                  <div className="pt-2 border-t border-emerald-300 flex justify-between items-center">
+                    <span className="font-bold text-gray-800">Total (tax included):</span>
+                    <span className="text-emerald-600 font-bold text-xl">${calculateTotalPrice().toFixed(2)}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Tax (13%):</span>
-                  <span className="font-medium">${calculateTax().toFixed(2)}</span>
-                </div>
-                <div className="pt-2 border-t border-emerald-300 flex justify-between items-center">
-                  <span className="font-bold text-gray-800">Total (tax included):</span>
-                  <span className="text-emerald-600 font-bold text-xl">${calculateTotalPrice().toFixed(2)}</span>
-                </div>
-              </div>
+              )}
             </div>
           </div>
 
-          {/* Cookies Selection */}
-          <div className="mb-6 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200 p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <span className="text-xl">🍪</span>
-                <div>
-                  <span className="text-sm font-semibold text-gray-800">Cookies</span>
-                  <span className="text-xs text-gray-600 ml-2">$4.00 each</span>
+          {/* Cookies Selection - Hidden in catering mode */}
+          {!isCateringMode && (
+            <div className="mb-6 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <span className="text-xl">🍪</span>
+                  <div>
+                    <span className="text-sm font-semibold text-gray-800">Cookies</span>
+                    <span className="text-xs text-gray-600 ml-2">$4.00 each</span>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <span className={`font-semibold text-sm min-w-[3.5rem] text-left ${cookieQuantity > 0 ? 'text-emerald-600' : 'text-gray-400'}`}>
+                    ${(cookieQuantity * 4).toFixed(2)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setCookieQuantity(Math.max(0, cookieQuantity - 1))}
+                    disabled={cookieQuantity === 0}
+                    className="w-9 h-9 rounded-lg border-2 border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center font-bold text-gray-700 transition-all duration-200 hover:border-gray-400"
+                  >
+                    −
+                  </button>
+                  <span className="text-lg font-bold text-gray-800 min-w-[2rem] text-center">{cookieQuantity}</span>
+                  <button
+                    type="button"
+                    onClick={() => setCookieQuantity(cookieQuantity + 1)}
+                    className="w-9 h-9 rounded-lg border-2 border-amber-400 bg-amber-50 hover:bg-amber-100 flex items-center justify-center font-bold text-amber-700 transition-all duration-200 hover:border-amber-500"
+                  >
+                    +
+                  </button>
                 </div>
               </div>
-              <div className="flex items-center space-x-3">
-                <span className={`font-semibold text-sm min-w-[3.5rem] text-left ${cookieQuantity > 0 ? 'text-emerald-600' : 'text-gray-400'}`}>
-                  ${(cookieQuantity * 4).toFixed(2)}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setCookieQuantity(Math.max(0, cookieQuantity - 1))}
-                  disabled={cookieQuantity === 0}
-                  className="w-9 h-9 rounded-lg border-2 border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center font-bold text-gray-700 transition-all duration-200 hover:border-gray-400"
-                >
-                  −
-                </button>
-                <span className="text-lg font-bold text-gray-800 min-w-[2rem] text-center">{cookieQuantity}</span>
-                <button
-                  type="button"
-                  onClick={() => setCookieQuantity(cookieQuantity + 1)}
-                  className="w-9 h-9 rounded-lg border-2 border-amber-400 bg-amber-50 hover:bg-amber-100 flex items-center justify-center font-bold text-amber-700 transition-all duration-200 hover:border-amber-500"
-                >
-                  +
-                </button>
-              </div>
             </div>
-          </div>
+          )}
 
           <form onSubmit={handleOrderSubmit}>
             <div className="mb-6">

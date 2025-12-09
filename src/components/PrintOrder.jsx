@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getTodaysOrders, getTodaysOrderSummary, getTodaysTotalAmount, getAllSandwiches, updateOrder, deleteOrder, updateOrderPaymentStatus } from '../db/database.js'
+import { useFeatureGate } from '../hooks/useFeatureFlag'
 
 // ANCHOR: print-order-component
 function PrintOrder({ onBack }) {
@@ -16,6 +17,12 @@ function PrintOrder({ onBack }) {
   })
 
   const TAX_RATE = 0.13
+  const isCateringMode = useFeatureGate('catering-sandwich-feature')
+
+  // Debug: Log gate status
+  useEffect(() => {
+    console.log('🧪 TEST (PrintOrder): catering-sandwich-feature gate =', isCateringMode)
+  }, [isCateringMode])
 
   useEffect(() => {
     loadOrderData()
@@ -186,10 +193,11 @@ function PrintOrder({ onBack }) {
                         )}
                         {order.addons && order.addons.length > 0 && (
                           <div className="text-xs text-emerald-600 print:text-black print:text-xs mb-1 font-medium">
-                            Addons: {order.addons.map(a => a.name).join(', ')} (+${order.addons.reduce((sum, a) => sum + (a.price || 0), 0).toFixed(2)})
+                            Addons: {order.addons.map(a => a.name).join(', ')}
+                            {!isCateringMode && ` (+$${order.addons.reduce((sum, a) => sum + (a.price || 0), 0).toFixed(2)})`}
                           </div>
                         )}
-                        {order.cookie_quantity > 0 && (
+                        {!isCateringMode && order.cookie_quantity > 0 && (
                           <div className="text-xs text-emerald-600 print:text-black print:text-xs mb-1 font-medium">
                             {order.cookie_quantity} cookie{order.cookie_quantity !== 1 ? 's' : ''} (+${(order.cookie_quantity * 4).toFixed(2)})
                           </div>
@@ -202,74 +210,82 @@ function PrintOrder({ onBack }) {
                           </div>
                         )}
                         {/* Payment Status */}
-                        <div className="mt-2 print:hidden">
-                          {order.payment_status === 'paid' ? (
-                            <span className="inline-flex items-center space-x-1 bg-emerald-100 text-emerald-700 text-xs font-semibold px-2 py-1 rounded-full border border-emerald-200">
-                              <span>✓</span>
-                              <span>Paid</span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center space-x-1 bg-amber-100 text-amber-700 text-xs font-semibold px-2 py-1 rounded-full border border-amber-200">
-                              <span>⏳</span>
-                              <span>Unpaid</span>
-                            </span>
-                          )}
-                        </div>
+                        {!isCateringMode && (
+                          <div className="mt-2 print:hidden">
+                            {order.payment_status === 'paid' ? (
+                              <span className="inline-flex items-center space-x-1 bg-emerald-100 text-emerald-700 text-xs font-semibold px-2 py-1 rounded-full border border-emerald-200">
+                                <span>✓</span>
+                                <span>Paid</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center space-x-1 bg-amber-100 text-amber-700 text-xs font-semibold px-2 py-1 rounded-full border border-amber-200">
+                                <span>⏳</span>
+                                <span>Unpaid</span>
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className="flex flex-col items-end space-y-2 print:flex-row print:items-center print:space-y-0 print:space-x-4">
-                        <div className="text-right print:text-sm">
-                          {(() => {
-                            const total = order.sandwich_price
-                            const subtotal = total / (1 + TAX_RATE)
-                            const tax = total - subtotal
-                            return (
-                              <>
-                                <div className="print:hidden">
-                                  <p className="text-gray-600 text-sm">
-                                    Subtotal: ${subtotal.toFixed(2)}
-                                  </p>
-                                  <p className="text-gray-600 text-sm">
-                                    Tax: ${tax.toFixed(2)}
-                                  </p>
-                                  <p className="text-emerald-600 font-bold text-xl border-t border-gray-300 pt-1">
-                                    Total: ${total.toFixed(2)}
-                                  </p>
-                                </div>
-                                <div className="hidden print:block">
-                                  <span className="text-gray-600 text-xs bg-gray-100 px-2 py-1 rounded mr-1">
-                                    ${subtotal.toFixed(2)}
-                                  </span>
-                                  <span className="text-gray-600 text-xs">+</span>
-                                  <span className="text-gray-600 text-xs bg-gray-100 px-2 py-1 rounded mx-1">
-                                    ${tax.toFixed(2)} tax
-                                  </span>
-                                  <span className="text-gray-600 text-xs">=</span>
-                                  <span className="text-emerald-600 font-bold text-sm bg-emerald-100 px-2 py-1 rounded ml-1">
-                                    ${total.toFixed(2)}
-                                  </span>
-                                </div>
-                              </>
-                            )
-                          })()}
-                        </div>
+                        {!isCateringMode && (
+                          <div className="text-right print:text-sm">
+                            {(() => {
+                              const total = order.sandwich_price
+                              const subtotal = total / (1 + TAX_RATE)
+                              const tax = total - subtotal
+                              return (
+                                <>
+                                  <div className="print:hidden">
+                                    <p className="text-gray-600 text-sm">
+                                      Subtotal: ${subtotal.toFixed(2)}
+                                    </p>
+                                    <p className="text-gray-600 text-sm">
+                                      Tax: ${tax.toFixed(2)}
+                                    </p>
+                                    <p className="text-emerald-600 font-bold text-xl border-t border-gray-300 pt-1">
+                                      Total: ${total.toFixed(2)}
+                                    </p>
+                                  </div>
+                                  <div className="hidden print:block">
+                                    <span className="text-gray-600 text-xs bg-gray-100 px-2 py-1 rounded mr-1">
+                                      ${subtotal.toFixed(2)}
+                                    </span>
+                                    <span className="text-gray-600 text-xs">+</span>
+                                    <span className="text-gray-600 text-xs bg-gray-100 px-2 py-1 rounded mx-1">
+                                      ${tax.toFixed(2)} tax
+                                    </span>
+                                    <span className="text-gray-600 text-xs">=</span>
+                                    <span className="text-emerald-600 font-bold text-sm bg-emerald-100 px-2 py-1 rounded ml-1">
+                                      ${total.toFixed(2)}
+                                    </span>
+                                  </div>
+                                </>
+                              )
+                            })()}
+                          </div>
+                        )}
                         <div className="flex flex-col items-end space-y-2 print:hidden">
                           {/* Payment Status Toggle */}
-                          {order.payment_status === 'paid' ? (
-                            <button
-                              onClick={() => handlePaymentStatusChange(order.id, 'unpaid')}
-                              className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200 shadow-md hover:shadow-lg flex items-center space-x-1"
-                            >
-                              <span>↩️</span>
-                              <span>Mark as Unpaid</span>
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handlePaymentStatusChange(order.id, 'paid')}
-                              className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200 shadow-md hover:shadow-lg flex items-center space-x-1"
-                            >
-                              <span>✓</span>
-                              <span>Mark as Paid</span>
-                            </button>
+                          {!isCateringMode && (
+                            <>
+                              {order.payment_status === 'paid' ? (
+                                <button
+                                  onClick={() => handlePaymentStatusChange(order.id, 'unpaid')}
+                                  className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200 shadow-md hover:shadow-lg flex items-center space-x-1"
+                                >
+                                  <span>↩️</span>
+                                  <span>Mark as Unpaid</span>
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handlePaymentStatusChange(order.id, 'paid')}
+                                  className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200 shadow-md hover:shadow-lg flex items-center space-x-1"
+                                >
+                                  <span>✓</span>
+                                  <span>Mark as Paid</span>
+                                </button>
+                              )}
+                            </>
                           )}
                           <div className="flex space-x-2">
                             <button
@@ -329,12 +345,14 @@ function PrintOrder({ onBack }) {
                           )}
                         </div>
                       </div>
-                      <span className="font-bold text-emerald-600 print:text-black text-lg print:text-sm">
-                        ${item.total_price.toFixed(2)}
-                      </span>
+                      {!isCateringMode && (
+                        <span className="font-bold text-emerald-600 print:text-black text-lg print:text-sm">
+                          ${item.total_price.toFixed(2)}
+                        </span>
+                      )}
                     </div>
                   ))}
-                  {summary.cookies && (
+                  {!isCateringMode && summary.cookies && (
                     <div className="flex justify-between items-center p-3 bg-amber-50/60 print:bg-white print:p-1 rounded-lg border border-amber-200 print:border-gray-200">
                       <div className="flex items-center space-x-3 print:space-x-2">
                         <span className="bg-amber-500 text-white text-xs px-2 py-1 rounded-full font-medium print:bg-gray-800 print:px-1">
@@ -351,34 +369,46 @@ function PrintOrder({ onBack }) {
                   )}
                 </div>
 
-                <div className="border-t-2 border-blue-200 print:border-black pt-6 print:pt-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 print:grid-cols-4 print:gap-2 print:text-xs">
-                    <div className="text-center sm:text-left print:text-left">
-                      <p className="text-sm text-gray-600 print:text-black print:text-xs">Orders</p>
+                {!isCateringMode && (
+                  <div className="border-t-2 border-blue-200 print:border-black pt-6 print:pt-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 print:grid-cols-4 print:gap-2 print:text-xs">
+                      <div className="text-center sm:text-left print:text-left">
+                        <p className="text-sm text-gray-600 print:text-black print:text-xs">Orders</p>
+                        <p className="text-2xl font-bold text-gray-800 print:text-black print:text-sm">
+                          {orders.length}
+                        </p>
+                      </div>
+                      <div className="text-center print:text-left">
+                        <p className="text-sm text-gray-600 print:text-black print:text-xs">Subtotal</p>
+                        <p className="text-2xl font-bold text-gray-800 print:text-black print:text-sm">
+                          ${(totalAmount / (1 + TAX_RATE)).toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="text-center sm:text-right print:text-left">
+                        <p className="text-sm text-gray-600 print:text-black print:text-xs">Tax ({(TAX_RATE * 100).toFixed(0)}%)</p>
+                        <p className="text-xl font-bold text-gray-800 print:text-black print:text-sm">
+                          ${(totalAmount - (totalAmount / (1 + TAX_RATE))).toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="text-center print:text-center col-span-3 print:col-span-1">
+                        <p className="text-sm text-gray-600 print:text-black print:text-xs">Total</p>
+                        <p className="text-4xl font-bold text-emerald-600 print:text-black print:text-base print:font-bold">
+                          ${totalAmount.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {isCateringMode && (
+                  <div className="border-t-2 border-blue-200 print:border-black pt-6 print:pt-3">
+                    <div className="text-center">
+                      <p className="text-sm text-gray-600 print:text-black print:text-xs">Total Orders</p>
                       <p className="text-2xl font-bold text-gray-800 print:text-black print:text-sm">
                         {orders.length}
                       </p>
                     </div>
-                    <div className="text-center print:text-left">
-                      <p className="text-sm text-gray-600 print:text-black print:text-xs">Subtotal</p>
-                      <p className="text-2xl font-bold text-gray-800 print:text-black print:text-sm">
-                        ${(totalAmount / (1 + TAX_RATE)).toFixed(2)}
-                      </p>
-                    </div>
-                    <div className="text-center sm:text-right print:text-left">
-                      <p className="text-sm text-gray-600 print:text-black print:text-xs">Tax ({(TAX_RATE * 100).toFixed(0)}%)</p>
-                      <p className="text-xl font-bold text-gray-800 print:text-black print:text-sm">
-                        ${(totalAmount - (totalAmount / (1 + TAX_RATE))).toFixed(2)}
-                      </p>
-                    </div>
-                    <div className="text-center print:text-center col-span-3 print:col-span-1">
-                      <p className="text-sm text-gray-600 print:text-black print:text-xs">Total</p>
-                      <p className="text-4xl font-bold text-emerald-600 print:text-black print:text-base print:font-bold">
-                        ${totalAmount.toFixed(2)}
-                      </p>
-                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
 
@@ -432,7 +462,7 @@ function PrintOrder({ onBack }) {
                     <option value="">Select a sandwich</option>
                     {sandwiches.map((sandwich) => (
                       <option key={sandwich.id} value={sandwich.id}>
-                        {sandwich.name} - ${sandwich.price.toFixed(2)}
+                        {sandwich.name}{!isCateringMode && ` - $${sandwich.price.toFixed(2)}`}
                       </option>
                     ))}
                   </select>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { getAllSandwiches, updateSandwich, setAllSandwichesInactive, toggleSandwichActive, addSandwich } from '../db/database.js'
 import { processMenuUpload } from '../utils/menuUploadHandler.js'
+import { useFeatureGate } from '../hooks/useFeatureFlag'
 
 // ANCHOR: manage-menu-component
 function ManageMenu({ onBack }) {
@@ -18,6 +19,7 @@ function ManageMenu({ onBack }) {
   })
   const [processingMenu, setProcessingMenu] = useState(false)
   const [menuProcessingStatus, setMenuProcessingStatus] = useState('')
+  const isCateringMode = useFeatureGate('catering-sandwich-feature')
 
   useEffect(() => {
     loadSandwiches()
@@ -217,20 +219,20 @@ function ManageMenu({ onBack }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
 
-    const price = parseFloat(formData.price)
-    if (isNaN(price) || price <= 0) {
+    const price = isCateringMode ? 0 : parseFloat(formData.price)
+    if (!isCateringMode && (isNaN(price) || price <= 0)) {
       alert('Please enter a valid price')
       return
     }
 
     // Validate and process addons
     const processedAddons = formData.addons
-      .filter(addon => addon.name.trim() && addon.price)
+      .filter(addon => addon.name.trim() && (isCateringMode || addon.price))
       .map(addon => ({
         name: addon.name.trim(),
-        price: parseFloat(addon.price)
+        price: isCateringMode ? 0 : parseFloat(addon.price)
       }))
-      .filter(addon => !isNaN(addon.price) && addon.price > 0)
+      .filter(addon => isCateringMode || (!isNaN(addon.price) && addon.price > 0))
 
     try {
       if (editingSandwich) {
@@ -424,7 +426,9 @@ function ManageMenu({ onBack }) {
                           </div>
                           <p className="text-gray-600 text-sm leading-relaxed mb-2">{sandwich.ingredients}</p>
                           <div className="flex items-center gap-2">
-                            <span className="text-emerald-600 font-bold text-base">${sandwich.price.toFixed(2)}</span>
+                            {!isCateringMode && (
+                              <span className="text-emerald-600 font-bold text-base">${sandwich.price.toFixed(2)}</span>
+                            )}
                             {sandwich.is_active && (
                               <span className="bg-emerald-500 text-white text-xs px-2 py-0.5 rounded-full font-medium">
                                 ON MENU
@@ -565,23 +569,25 @@ function ManageMenu({ onBack }) {
                   />
                 </div>
 
-                <div className="md:w-1/2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Base Price ($)
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">$</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.price}
-                      onChange={(e) => setFormData({...formData, price: e.target.value})}
-                      className="w-full pl-7 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 transition-all duration-200"
-                      placeholder="12.99"
-                      required
-                    />
+                {!isCateringMode && (
+                  <div className="md:w-1/2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Base Price ($)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={formData.price}
+                        onChange={(e) => setFormData({...formData, price: e.target.value})}
+                        className="w-full pl-7 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 transition-all duration-200"
+                        placeholder="12.99"
+                        required
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div>
                   <div className="flex items-center justify-between mb-2">
@@ -608,17 +614,19 @@ function ManageMenu({ onBack }) {
                             className="flex-1 px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                             placeholder="Addon name (e.g., Bacon)"
                           />
-                          <div className="relative w-28">
-                            <span className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-500 text-xs">$</span>
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={addon.price}
-                              onChange={(e) => handleUpdateAddon(index, 'price', e.target.value)}
-                              className="w-full pl-6 pr-2.5 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                              placeholder="2.00"
+                          {!isCateringMode && (
+                            <div className="relative w-28">
+                              <span className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-500 text-xs">$</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={addon.price}
+                                onChange={(e) => handleUpdateAddon(index, 'price', e.target.value)}
+                                className="w-full pl-6 pr-2.5 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                                placeholder="2.00"
                             />
                           </div>
+                          )}
                           <button
                             type="button"
                             onClick={() => handleRemoveAddon(index)}
