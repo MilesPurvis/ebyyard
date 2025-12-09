@@ -5,6 +5,7 @@ import { StatsigSessionReplayPlugin } from '@statsig/session-replay'
 // ANCHOR: statsig-initialization
 export function StatsigProvider({ children }) {
   // Get Statsig client key from environment variables
+  // vite.config.js maps NEXT_PUBLIC_STATSIG_CLIENT_KEY to VITE_STATSIG_CLIENT_KEY at build time
   const clientKey = import.meta.env.VITE_STATSIG_CLIENT_KEY
 
   const { client } = useClientAsyncInit(
